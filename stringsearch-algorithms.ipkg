@@ -1,0 +1,12 @@
+package stringsearch-algorithms
+
+authors   = "Matthew Mosior"
+brief     = "Fast searching, splitting and replacing of ByteStrings"
+version   = 0.1.0
+sourcedir = "src"
+depends   = base
+          , array
+          , bytestring
+          , containers
+          , ref1
+modules   = Data.ByteString.Search.Internal.Utils
