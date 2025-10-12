@@ -97,7 +97,7 @@ kmpBorders bs t =
 |||
 ||| This automaton maps (state, input byte) pairs to the next state, enabling
 ||| efficient scanning of input text to find occurrences of the pattern. It
-||| represents a flattened transition table of size `(pattern length + 1) * 256`,
+||| represents a flattened transition table of size `((length of pattern) + 1) * 256`,
 ||| where 256 corresponds to the number of possible byte values (0–255).
 |||
 ||| Each state represents a prefix of the pattern:
@@ -201,3 +201,62 @@ automaton bs t =
                                                 Just state' =>
                                                   let bord' # t := get bord state' t
                                                     in assert_total (go bord' bs arr bord t)
+
+--------------------------------------------------------------------------------
+--          Boyer-Moore Preprocessing
+--------------------------------------------------------------------------------
+
+||| Constructs a lookup table recording the last occurrence of each byte
+||| in the given pattern.
+|||
+||| For every byte value, the table stores the index of its last
+||| occurrence within the pattern, excluding the final position.  
+|||
+||| This information allows for efficient computation of how far the search
+||| window can safely shift after a mismatch.
+|||
+||| When a mismatch occurs at pattern position (position in pattern) on byte (b),
+||| the pattern can be shifted right by at least:
+|||
+||| (position in pattern ) - (last occurrence of b in initial pattern)
+|||
+||| If the byte @b@ does not appear anywhere in the pattern, the search
+||| window can shift so that the pattern starts immediately after the
+||| mismatched byte, resulting in a default shift of 1.
+|||
+||| This table is typically used in Boyer–Moore–style pattern matching
+||| algorithms to determine optimal skip distances after mismatches.
+|||
+||| O((length of pattern) + (alphabet size))
+export
+occurrences :  (bs : ByteString)
+            -> F1 s (MArray s 256 Nat)
+occurrences bs t =
+  case null bs of
+    True  =>
+      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences: empty ByteString") # t
+    False =>
+      let arr # t := marray1 256 (the Nat 1) t
+        in go 0 bs arr t
+  where
+    go :  (i : Nat)
+       -> (bs : ByteString)
+       -> (arr : MArray s 256 Nat)
+       -> F1 s (MArray s 256 Nat)
+    go i bs arr t =
+      let patend := minus (length bs) 1
+        in case i == patend of
+             True  =>
+               arr # t
+             False =>
+               let i' := index i bs
+                 in case i' of
+                      Nothing  =>
+                        (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't index into ByteString") # t
+                      Just i'' =>
+                        case tryNatToFin (cast {to=Nat} i'') of
+                          Nothing  =>
+                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't convert Nat to Fin") # t
+                          Just i''' =>
+                            let () # t := set arr i''' i t
+                              in assert_total (go (plus i 1) bs arr t)
