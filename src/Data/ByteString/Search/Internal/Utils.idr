@@ -3,6 +3,7 @@ module Data.ByteString.Search.Internal.Utils
 
 import Data.Array.Core
 import Data.Array.Mutable
+import Data.Bits
 import Data.ByteString
 import Data.Linear.Ref1
 
@@ -102,18 +103,101 @@ kmpBorders bs t =
 ||| Each state represents a prefix of the pattern:
 ||| - State 0: empty prefix
 ||| - State i: matched the first i bytes of the pattern
-||| - Final state = pattern length: full match
+||| - Final state: full match (pattern length)
 |||
 ||| Transitions are initialized using the KMP border table, generated via `kmpBorders`,
 ||| to ensure correct failure transitions, avoiding redundant backtracking.
 export
-automaton :  ByteString
-          -> F1 s (MArray s n Nat)
+automaton :  (bs : ByteString)
+          -> F1 s (MArray s (minus (mult (plus (length bs) 1) 256) 1) Nat)
 automaton bs t =
   let arr # t := unsafeMArray1 (minus (mult (plus (length bs) 1) 256) 1) t
-    in case tryNatToFin 0 of
+      idx     := index 0 bs
+    in case idx of
          Nothing   =>
-           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders: can't convert Nat to Fin") # t
-         Just zero =>
-           let () # t := set arr zero 1 t
-             in go 1 0 bs arr t
+           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton: can't index into ByteString") # t
+         Just idx' =>
+           case tryNatToFin (cast {to=Nat} idx') of
+             Nothing    =>
+               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton: can't convert Nat to Fin") # t
+             Just idx'' =>
+               let ()   # t := set arr idx'' (the Nat 1) t
+                   bord # t := kmpBorders bs t
+                 in go 1 bs arr bord t
+  where
+    go :  (state : Nat)
+       -> (bs : ByteString)
+       -> (arr : MArray s (minus (mult (plus (length bs) 1) 256) 1) Nat)
+       -> (bord : MArray s (length bs) Nat)
+       -> F1 s (MArray s (minus (mult (plus (length bs) 1) 256) 1) Nat)
+    go state bs arr bord t =
+      let patlen := length bs
+          base   := (cast {to=Int} state) `shiftL` 8
+        in case state == patlen of
+             True  =>
+               case tryNatToFin state of
+                 Nothing     =>
+                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
+                 Just state' =>
+                   let bord' # t := get bord state' t
+                     in case bord' < 0 of
+                          True  =>
+                            case state == patlen of
+                              True  =>
+                                arr # t
+                              False =>
+                                assert_total (go (plus bord' 1) bs arr bord t)
+                          False =>
+                            let i' := index state bs
+                              in case i' of
+                                   Nothing  =>
+                                     (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't index into ByteString") # t
+                                   Just i'' =>
+                                     let i''' := plus (cast {to=Nat} base) (cast {to=Nat} i'')
+                                       in case tryNatToFin i''' of
+                                            Nothing =>
+                                              (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
+                                            Just i'''' =>
+                                              let s # t := get arr i'''' t
+                                                in case s == 0 of
+                                                     True  =>
+                                                       let () # t := set arr i'''' (plus bord' 1) t
+                                                         in assert_total (go bord' bs arr bord t)
+                                                     False =>
+                                                       assert_total (go bord' bs arr bord t)
+             False =>
+               case state < 0 of
+                 True  =>
+                   case state == patlen of
+                     True  =>
+                       arr # t
+                     False =>
+                       assert_total (go (plus state 1) bs arr bord t)
+                 False =>
+                   let i' := index state bs
+                     in case i' of
+                          Nothing  =>
+                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't index into ByteString") # t
+                          Just i'' =>
+                            let i''' := plus (cast {to=Nat} base) (cast {to=Nat} i'')
+                              in case tryNatToFin i''' of
+                                   Nothing =>
+                                     (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
+                                   Just i'''' =>
+                                     let s # t := get arr i'''' t
+                                       in case s == 0 of
+                                            True  =>
+                                              let () # t := set arr i'''' (plus state 1) t
+                                                in case tryNatToFin state of
+                                                     Nothing     =>
+                                                       (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
+                                                     Just state' => 
+                                                       let bord' # t := get bord state' t
+                                                         in assert_total (go bord' bs arr bord t)
+                                            False =>
+                                              case tryNatToFin state of
+                                                Nothing     =>
+                                                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
+                                                Just state' =>
+                                                  let bord' # t := get bord state' t
+                                                    in assert_total (go bord' bs arr bord t)
