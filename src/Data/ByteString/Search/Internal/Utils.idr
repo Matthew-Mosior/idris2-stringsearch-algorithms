@@ -109,9 +109,9 @@ kmpBorders bs t =
 ||| to ensure correct failure transitions, avoiding redundant backtracking.
 export
 automaton :  (bs : ByteString)
-          -> F1 s (MArray s (minus (mult (plus (length bs) 1) 256) 1) Nat)
+          -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
 automaton bs t =
-  let arr # t := unsafeMArray1 (minus (mult (plus (length bs) 1) 256) 1) t
+  let arr # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
       idx     := index 0 bs
     in case idx of
          Nothing   =>
@@ -127,9 +127,9 @@ automaton bs t =
   where
     go :  (state : Nat)
        -> (bs : ByteString)
-       -> (arr : MArray s (minus (mult (plus (length bs) 1) 256) 1) Nat)
+       -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
        -> (bord : MArray s (length bs) Nat)
-       -> F1 s (MArray s (minus (mult (plus (length bs) 1) 256) 1) Nat)
+       -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
     go state bs arr bord t =
       let patlen := length bs
           base   := (cast {to=Int} state) `shiftL` 8
