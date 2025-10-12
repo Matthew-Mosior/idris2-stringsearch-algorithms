@@ -220,7 +220,7 @@ automaton bs t =
 |||
 ||| (position in pattern ) - (last occurrence of b in initial pattern)
 |||
-||| If the byte @b@ does not appear anywhere in the pattern, the search
+||| If the byte b does not appear anywhere in the pattern, the search
 ||| window can shift so that the pattern starts immediately after the
 ||| mismatched byte, resulting in a default shift of 1.
 |||
