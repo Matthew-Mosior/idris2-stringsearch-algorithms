@@ -218,7 +218,7 @@ automaton bs t =
 ||| When a mismatch occurs at pattern position (position in pattern) on byte (b),
 ||| the pattern can be shifted right by at least:
 |||
-||| (position in pattern ) - (last occurrence of b in initial pattern)
+||| (position in pattern) - (last occurrence of b in initial pattern)
 |||
 ||| If the byte b does not appear anywhere in the pattern, the search
 ||| window can shift so that the pattern starts immediately after the
@@ -260,3 +260,194 @@ occurrences bs t =
                           Just i''' =>
                             let () # t := set arr i''' i t
                               in assert_total (go (plus i 1) bs arr t)
+
+||| Table of suffix-lengths.
+|||
+||| The value of this array at place i is the length of the longest common
+||| suffix of the entire pattern and the prefix of the pattern ending at
+||| position i.
+|||
+||| Usually, most of the entries will be 0. Only if the byte at position i
+||| is the same as the last byte of the pattern can the value be positive.
+||| In any case the value at index patend is patlen (since the pattern is
+||| identical to itself) and 0 <= value at i <= (i + 1).
+|||
+||| To keep this part of preprocessing linear in the length of the pattern,
+||| the implementation must be non-obvious (the obvious algorithm for this
+||| is quadratic).
+|||
+||| When the index under consideration is inside a previously identified
+||| common suffix, we align that suffix with the end of the pattern and
+||| check whether the suffix ending at the position corresponding to idx
+||| is shorter than the part of the suffix up to idx. If that is the case,
+||| the length of the suffix ending at idx is that of the suffix at the
+||| corresponding position. Otherwise extend the suffix as far as possible.
+||| If the index under consideration is not inside a previously identified
+||| common suffix, compare with the last byte of the pattern. If that gives
+||| a suffix of length > 1, for the next index we're in the previous
+||| situation, otherwise we're back in the same situation for the next
+||| index.
+export
+suffixLengths :  (bs : ByteString)
+              -> F1 s (MArray s (length bs) Nat)
+suffixLengths bs t =
+  case null bs of
+    True  =>
+      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths: empty ByteString") # t
+    False =>
+      let arr # t := unsafeMArray1 (length bs) t
+        in noSuffix (length bs) bs arr t
+  where
+    dec :  (diff : Nat)
+        -> (j : Nat)
+        -> F1 s Nat
+    dec diff j t =
+      let j'  := index j bs
+          j'' := index (plus j diff) bs
+        in case j < 0 || j' /= j'' of
+             True  =>
+               j # t
+             False =>
+               assert_total (dec diff (minus j 1) t)
+    mutual
+      suffixLoop :  (pre : Nat)
+                 -> (end : Nat)
+                 -> (idx : Nat)
+                 -> (bs : ByteString)
+                 -> (arr : MArray s (length bs) Nat)
+                 -> F1 s (MArray s (length bs) Nat)
+      suffixLoop pre end idx bs arr t =
+        case idx < 0 of
+          True  =>
+            arr # t
+          False =>
+            case pre < idx of
+              True  =>
+                let idx'  := index idx bs
+                    idx'' := index (length bs) bs
+                  in case idx' /= idx'' of
+                       True  =>
+                         case tryNatToFin idx of
+                           Nothing     =>
+                             (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                           Just idx''' =>
+                             let () # t := set arr idx''' 0 t
+                               in assert_total (suffixLoop pre (minus end 1) (minus idx 1) bs arr t)
+                       False =>
+                         case tryNatToFin end of
+                           Nothing   =>
+                             (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                           Just end' =>
+                             let prevs # t := get arr end' t
+                               in case tryNatToFin idx of
+                                    Nothing   =>
+                                      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't convert Nat to Fin") # t
+                                    Just idx' =>
+                                      case (plus pre prevs) < idx of
+                                        True  =>
+                                          let () # t := set arr idx' prevs t
+                                            in assert_total (suffixLoop pre (minus end 1) (minus idx 1) bs arr t)
+                                        False =>
+                                          let pri # t := dec (minus (length bs) idx) pre t
+                                              ()  # t := set arr idx' (minus idx pri) t
+                                            in assert_total (suffixLoop pri (minus (length bs) 1) (minus idx 1) bs arr t)
+              False =>
+                noSuffix idx bs arr t
+      noSuffix :  (i : Nat)
+               -> (bs : ByteString)
+               -> (arr : MArray s (length bs) Nat)
+               -> F1 s (MArray s (length bs) Nat)
+      noSuffix i bs arr t =
+        case i < 0 of
+          True  =>
+            arr # t
+          False =>
+            let patati := index i bs
+              in case patati of
+                   Nothing  =>
+                     (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't index into ByteString") # t
+                   Just patati' =>
+                     let patatend := index (length bs) bs
+                       in case patatend of
+                            Nothing        =>
+                              (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't index into ByteString") # t
+                            Just patatend' => 
+                              case patati' == patatend' of
+                                True  =>
+                                  let diff      := minus (length bs) i
+                                      nexti     := minus i 1
+                                      previ # t := dec diff nexti t
+                                    in case tryNatToFin i of
+                                         Nothing =>
+                                           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't convert Nat to Fin") # t
+                                         Just i' =>
+                                           case previ == nexti of
+                                             True  =>
+                                               let () # t := set arr i' 1 t
+                                                 in assert_total (noSuffix nexti bs arr t)
+                                             False =>
+                                               let () # t := set arr i' (minus i previ) t
+                                                 in assert_total (suffixLoop previ (minus (length bs) 1) nexti bs arr t)
+                                False =>
+                                  case tryNatToFin i of
+                                    Nothing =>
+                                      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't convert Nat to Fin") # t
+                                    Just i' =>
+                                      let () # t := set arr i' 0 t
+                                        in assert_total (noSuffix (minus i 1) bs arr t)
+
+{-
+||| Table of suffix-shifts
+|||
+||| When a mismatch occurs at pattern position patpos, assumed to be not the
+||| last position in the pattern, the suffix u of length (patend - patpos)
+||| has been successfully matched.
+||| Let c be the byte in the pattern at position patpos.
+|||
+||| If the sub-pattern u also occurs in the pattern somewhere *not* preceded
+||| by c, let upos be the position of the last byte in u for the last of
+||| all such occurrences. Then there can be no match if the window is shifted
+||| less than (patend - upos) places, because either the part of the string
+||| which matched the suffix u is not aligned with an occurrence of u in the
+||| pattern, or it is aligned with an occurrence of u which is preceded by
+||| the same byte c as the originally matched suffix.
+|||
+||| If the complete sub-pattern u does not occur again in the pattern, or all
+||| of its occurrences are preceded by the byte c, then we can align the
+||| pattern with the string so that a suffix v of u matches a prefix of the
+||| pattern. If v is chosen maximal, no smaller shift can give a match, so
+||| we can shift by at least (patlen - length v).
+|||
+||| If a complete match is encountered, we can shift by at least the same
+||| amount as if the first byte of the pattern was a mismatch, no complete
+||| match is possible between these positions.
+|||
+||| For non-periodic patterns, only very short suffixes will usually occur
+||| again in the pattern, so if a longer suffix has been matched before a
+||| mismatch, the window can then be shifted entirely past the partial
+||| match, so that part of the string will not be re-compared.
+||| For periodic patterns, the suffix shifts will be shorter in general,
+||| leading to an O(strlen * patlen) worst-case performance.
+|||
+||| To compute the suffix-shifts, we use an array containing the lengths of
+||| the longest common suffixes of the entire pattern and its prefix ending
+||| with position pos.
+export
+suffixShifts :  (bs : ByteString)
+             -> F1 s (MArray s (length bs) Nat)
+suffixShifts bs t =
+  let arr   # t := unsafeMArray1 (length bs) t
+      arr'  # t := prefixShift (minus (length bs) 1) 0 bs arr t
+    in suffixShift 0 bs arr' t
+  where
+    prefixShift :  (idx : Nat)
+                -> (j : Nat)
+                -> (bs : ByteString)
+                -> (arr : MArray s (length bs) Nat)
+                -> F1 s (MArray s (length bs) Nat)
+    prefixShift idx j bs arr t =
+      case idx < 0 of
+        True  =>
+          arr # t
+        False =>
+-}        
