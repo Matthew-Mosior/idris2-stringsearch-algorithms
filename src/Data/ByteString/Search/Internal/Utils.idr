@@ -212,14 +212,15 @@ occurrences :  (bs : ByteString)
             -> F1 s (MArray s 256 Nat)
 occurrences bs t =
   let arr # t := marray1 256 (the Nat 1) t
-    in go (length bs) bs arr t
+      ()  # t := go (length bs) bs arr t
+    in arr # t
   where
     go :  (i : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s 256 Nat)
-       -> F1 s (MArray s 256 Nat)
-    go Z     _  arr t =
-      arr # t
+       -> F1' s
+    go Z     _  _   t =
+      () # t
     go (S i) bs arr t =
       let i' := index i bs
         in case i' of
@@ -265,7 +266,8 @@ suffixLengths :  (bs : ByteString)
               -> F1 s (MArray s (length bs) Nat)
 suffixLengths bs t =
   let arr # t := unsafeMArray1 (length bs) t
-    in noSuffix (length bs) bs arr t
+      ()  # t := noSuffix (length bs) bs arr t
+    in arr # t
   where
     dec :  (diff : Nat)
         -> (j : Nat)
@@ -284,9 +286,9 @@ suffixLengths bs t =
                  -> (idx : Nat)
                  -> (bs : ByteString)
                  -> (arr : MArray s (length bs) Nat)
-                 -> F1 s (MArray s (length bs) Nat)
-      suffixLoop _   _   Z       _  arr t =
-        arr # t
+                 -> F1' s
+      suffixLoop _   _   Z       _  _   t =
+        () # t
       suffixLoop pre end (S idx) bs arr t =
         case pre < (S idx) of
           True  =>
@@ -323,9 +325,9 @@ suffixLengths bs t =
       noSuffix :  (i : Nat)
                -> (bs : ByteString)
                -> (arr : MArray s (length bs) Nat)
-               -> F1 s (MArray s (length bs) Nat)
-      noSuffix Z     _  arr t =
-        arr # t
+               -> F1' s
+      noSuffix Z     _  _   t =
+        () # t
       noSuffix (S i) bs arr t =
         let patati := index i bs
           in case patati of
@@ -403,8 +405,9 @@ suffixShifts :  (bs : ByteString)
 suffixShifts bs {prf} t =
   let arr  # t := marray1 (length bs) (length bs) t
       suff # t := suffixLengths bs {prf=prf} t
-      arr' # t := prefixShift (minus (length bs) 2) 0 bs suff arr t
-    in suffixShift (minus (length bs) 1) bs suff arr' t
+      ()   # t := prefixShift (minus (length bs) 2) 0 bs suff arr t
+      ()   # t := suffixShift (minus (length bs) 1) bs suff arr t
+    in arr # t
   where
     fillToShift :  (i : Nat)
                 -> (shift : Nat)
@@ -427,9 +430,9 @@ suffixShifts bs {prf} t =
                 -> (bs : ByteString)
                 -> (suff : MArray s (length bs) Nat)
                 -> (arr : MArray s (length bs) Nat)
-                -> F1 s (MArray s (length bs) Nat)
-    prefixShift Z       _ _  _    arr t =
-      arr # t
+                -> F1' s
+    prefixShift Z       _ _  _    _   t =
+      () # t
     prefixShift (S idx) j bs suff arr t =
       case tryNatToFin idx of
         Nothing   =>
@@ -446,9 +449,9 @@ suffixShifts bs {prf} t =
                 -> (bs : ByteString)
                 -> (suff : MArray s (length bs) Nat)
                 -> (arr : MArray s (length bs) Nat)
-                -> F1 s (MArray s (length bs) Nat)
-    suffixShift Z       _  _    arr t =
-      arr # t
+                -> F1' s
+    suffixShift Z       _  _    _   t =
+      () # t
     suffixShift (S idx) bs suff arr t =
       case tryNatToFin idx of
         Nothing   =>
