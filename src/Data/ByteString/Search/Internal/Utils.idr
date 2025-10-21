@@ -308,7 +308,7 @@ suffixLengths bs t =
                          let prevs # t := get arr end' t
                            in case tryNatToFin (S idx) of
                                 Nothing   =>
-                                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't convert Nat to Fin") # t
+                                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
                                 Just idx' =>
                                   case (plus pre prevs) < (S idx) of
                                     True  =>
