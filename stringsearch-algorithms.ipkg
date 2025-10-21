@@ -7,6 +7,5 @@ sourcedir = "src"
 depends   = base
           , array
           , bytestring
-          , containers
           , ref1
 modules   = Data.ByteString.Search.Internal.Utils
