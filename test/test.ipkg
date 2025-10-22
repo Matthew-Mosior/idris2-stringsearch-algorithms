@@ -3,7 +3,10 @@ package stringsearch-algorithms-test
 authors    = "Matthew Mosior"
 version    = 0.1.0
 sourcedir  = "src"
-depends    = stringsearch-algorithms
+depends    = array
+           , bytestring
            , hedgehog
+           , ref1
+           , stringsearch-algorithms
 main       = Main
 executable = "stringsearch-algorithms-test"

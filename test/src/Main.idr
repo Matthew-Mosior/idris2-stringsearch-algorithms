@@ -1,4 +1,11 @@
 module Main
 
+import Hedgehog
+import Utils
+
+%default total
+
 main : IO ()
-main = putStrLn "Test successful!"
+main = test
+  [ Utils.props
+  ]
