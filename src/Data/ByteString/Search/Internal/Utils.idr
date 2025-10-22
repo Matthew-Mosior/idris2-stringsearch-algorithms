@@ -17,10 +17,23 @@ import Data.So
 --          Preprocessing
 --------------------------------------------------------------------------------
 
-||| Calculates the width of the widest borders of the
-||| prefixes of the pattern which are not extensible
-||| to the borders of the next longest prefix.
-||| Most entries will be 0.
+||| Computes the suffix-oriented KMP border table for a given pattern.
+|||
+||| Each entry at index i (0 ≤ i ≤ length pattern) stores the length of the
+||| longest proper prefix of the prefix pattern[0..i-1] that is also a
+||| suffix. This “border” is used to determine how far to backtrack in
+||| pattern matching when a mismatch occurs.
+|||
+||| Unlike the standard KMP table, this table is suffix-oriented and
+||| built in a descending, structurally recursive manner.
+|||
+||| Example for "ANPANMAN" (indices 0..8):
+|||
+|||   Prefixes:   ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
+|||   Borders:    0    0     0      0       1        2        0         1          2
+|||
+||| The table helps efficiently skip positions in the pattern during
+||| substring search, while descending from longer prefixes to shorter ones.
 export
 kmpBorders :  (bs : ByteString)
            -> F1 s (MArray s (S (length bs)) Nat)
