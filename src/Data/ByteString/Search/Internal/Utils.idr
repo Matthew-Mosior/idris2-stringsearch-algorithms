@@ -29,8 +29,8 @@ import Data.So
 |||
 ||| Example for "ANPANMAN" (indices 0..8):
 |||
-|||   Prefixes:   ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
-|||   Borders:    0    0     0      0       1        2        0         1          2
+||| Prefixes:   ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
+||| Borders:    0    0     0      0      1       2        0         1          2
 |||
 ||| The table helps efficiently skip positions in the pattern during
 ||| substring search, while descending from longer prefixes to shorter ones.
