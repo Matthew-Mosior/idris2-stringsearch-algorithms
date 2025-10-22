@@ -29,33 +29,38 @@ kmpBorders bs t =
       ()  # t := go (length bs) bs arr t
     in arr # t
   where
-    dec :  (w : Nat)
+    dec :  (i : Nat)
         -> (j : Nat)
         -> (bs : ByteString)
         -> (arr : MArray s (S (length bs)) Nat)
         -> F1 s Nat
-    dec w Z _  _   t =
+    dec _ Z _  _   t =
       Z # t
-    dec w j bs arr t =
+    dec i j bs arr t =
       case tryNatToFin j of
         Nothing   =>
           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.dec: can't convert Nat to Fin") # t
-        Just j''' =>
-          let j'''' # t := get arr j''' t
-              wj        := index j'''' bs
+        Just j' =>
+          let j'' # t := get arr j' t
+              wj      := index j'' bs
             in case wj of
                  Nothing  =>
                    (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.dec: can't index into ByteString") # t
                  Just wj' =>
-                   case w == (cast {to=Nat} wj') of
-                     True  =>
-                       plus j'''' 1 # t
-                     False =>
-                       case j'''' == 0 of
-                         True  =>
-                           Z # t
-                         False =>
-                           assert_total (dec w j'''' bs arr t)
+                   let wi := index (minus i 1) bs
+                     in case wi of
+                          Nothing  =>
+                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.dec: can't index into ByteString") # t
+                          Just wi' =>
+                            case (cast {to=Nat} wi') == (cast {to=Nat} wj') of
+                              True  =>
+                                plus j'' 1 # t
+                              False =>
+                                case j'' == 0 of
+                                  True  =>
+                                    Z # t
+                                  False =>
+                                    assert_total (dec i j'' bs arr t)
     go :  (i : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (S (length bs)) Nat)
@@ -68,17 +73,12 @@ kmpBorders bs t =
           set arr zero 0 t
     go (S i) bs arr t =
       let () # t := assert_total (go i bs arr t)
-          w      := index i bs
-        in case w of
+        in case tryNatToFin (S i) of
              Nothing =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't index into ByteString") # t
-             Just w' =>
-               case tryNatToFin i of
-                 Nothing =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't convert Nat to Fin") # t
-                 Just i' =>
-                   let j # t := dec (cast {to=Nat} w') i bs arr t
-                     in set arr i' j t
+               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't convert Nat to Fin") # t
+             Just i' =>
+               let j # t := dec (S i) i bs arr t
+                 in set arr i' j t
 
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||

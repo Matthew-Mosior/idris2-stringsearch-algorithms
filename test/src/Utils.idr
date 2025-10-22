@@ -14,7 +14,7 @@ prop_kmpBorders = property1 $
           patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
           kmpborders  # t := kmpBorders patbs t
           kmpborders' # t := Data.Array.Core.freeze kmpborders t
-        in Prelude.Interfaces.toList kmpborders' # t ) === [0,1,2,1,1,2,1,1,1]
+        in Prelude.Interfaces.toList kmpborders' # t ) === [0,0,0,0,1,2,0,1,2]
 
 export
 props : Group
