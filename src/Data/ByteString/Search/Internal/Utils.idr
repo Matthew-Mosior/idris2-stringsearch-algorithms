@@ -23,9 +23,9 @@ import Data.So
 ||| Most entries will be 0.
 export
 kmpBorders :  (bs : ByteString)
-           -> F1 s (MArray s (length bs) Nat)
+           -> F1 s (MArray s (S (length bs)) Nat)
 kmpBorders bs t =
-  let arr # t := unsafeMArray1 (length bs) t
+  let arr # t := unsafeMArray1 (S (length bs)) t
     in case tryNatToFin 0 of
          Nothing   =>
            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders: can't convert Nat to Fin") # t
@@ -36,7 +36,7 @@ kmpBorders bs t =
     dec :  (w : Nat)
         -> (j : Nat)
         -> (bs : ByteString)
-        -> (arr : MArray s (length bs) Nat)
+        -> (arr : MArray s (S (length bs)) Nat)
         -> F1 s Nat
     dec w j bs arr t =
       let j' := index j bs
@@ -57,8 +57,8 @@ kmpBorders bs t =
     go :  (i : Nat)
        -> (j : Nat)
        -> (bs : ByteString)
-       -> (arr : MArray s (length bs) Nat)
-       -> F1 s (MArray s (length bs) Nat)
+       -> (arr : MArray s (S (length bs)) Nat)
+       -> F1 s (MArray s (S (length bs)) Nat)
     go Z     _ _  arr t =
       arr # t
     go (S i) j bs arr t =
@@ -91,14 +91,14 @@ kmpBorders bs t =
                                                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't convert Nat to Fin") # t
                                                 Just i' =>
                                                   let () # t := set arr i' j''''' t
-                                                    in go i j bs arr t
+                                                    in go i j' bs arr t
                                    False =>
                                      case tryNatToFin i of
                                        Nothing    =>
                                          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't convert Nat to Fin") # t
                                        Just i''' =>
                                          let () # t := set arr i''' j' t
-                                           in go i j bs arr t
+                                           in go i j' bs arr t
 
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||
@@ -136,7 +136,7 @@ automaton bs t =
        -> (j : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-       -> (bord : MArray s (length bs) Nat)
+       -> (bord : MArray s (S (length bs)) Nat)
        -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
     go Z         _ _  arr _    t =
       arr # t
