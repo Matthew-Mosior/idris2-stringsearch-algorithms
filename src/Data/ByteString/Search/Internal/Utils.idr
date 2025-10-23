@@ -123,18 +123,19 @@ automaton bs t =
              Just idx'' =>
                let ()   # t := set arr idx'' (the Nat 1) t
                    bord # t := kmpBorders bs t
-                 in go (length bs) (length bs) bs arr bord t
+                   ()   # t := go (length bs) (length bs) bs arr bord t
+                 in arr # t
   where
     go :  (state : Nat)
        -> (j : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
        -> (bord : MArray s (S (length bs)) Nat)
-       -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
+       -> F1' s
     go Z         _ _  arr _    t =
-      arr # t
+      () # t
     go (S state) j bs arr bord t =
-      case j < 0 of
+      case j == 0 of
         True  =>
           let patlen := length bs
             in case state == patlen of
@@ -143,7 +144,7 @@ automaton bs t =
                      Nothing     =>
                        (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
                      Just state' =>
-                       let state'' # t := get arr state' t
+                       let state'' # t := get bord state' t
                          in assert_total (go state state'' bs arr bord t)
                  False =>
                    assert_total (go state state bs arr bord t)
