@@ -111,70 +111,106 @@ export
 automaton :  (bs : ByteString)
           -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
 automaton bs t =
-  let arr # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
-      idx     := index 0 bs
-    in case idx of
-         Nothing   =>
-           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton: can't index into ByteString") # t
-         Just idx' =>
-           case tryNatToFin (cast {to=Nat} idx') of
-             Nothing    =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton: can't convert Nat to Fin") # t
-             Just idx'' =>
-               let ()   # t := set arr idx'' (the Nat 1) t
-                   bord # t := kmpBorders bs t
-                   ()   # t := go (length bs) bs arr bord t
-                 in arr # t
+  let arr  # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
+      bord # t := kmpBorders bs t
+      ()   # t := go Z bs arr bord t
+    in arr # t
   where
-    loop :  (k : Nat)
-         -> (base : Nat)
-         -> (state : Nat)
-         -> (prev : Nat)
+    flattenIndex :  (st : Nat)
+                 -> (byte : Nat)
+                 -> (bs : ByteString)
+                 -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
+                 -> F1 s (Fin (mult (plus (length bs) 1) 256))
+    flattenIndex st byte bs arr t =
+      let idx := plus (mult st 256) byte
+        in case tryNatToFin idx of
+             Nothing   =>
+               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.loop: can't convert Nat to Fin") # t
+             Just idx' =>
+               idx' # t
+    loop :  (b : Nat)
+         -> (cur : Nat)
+         -> (patbyte : Maybe Bits8)
+         -> (bordcur : Nat)
          -> (bs : ByteString)
          -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
          -> F1' s
-    loop 256 _    _     _    _  _   t =
-      () # t
-    loop k   base state prev bs arr t =
-      let k' := plus base k
-        in case tryNatToFin k' of
-             Nothing  =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.loop: can't convert Nat to Fin") # t
-             Just k'' =>
-               let s  # t := get arr k'' t
-                   w      := index (minus state 1) bs
-                 in case w of
-                      Nothing =>
-                        (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton: can't index into ByteString") # t
-                      Just w' =>
-                        case k == (cast {to=Nat} w') of
-                          True  =>
-                            let () # t := set arr k'' (plus state 1) t
-                              in assert_total (loop (S k) base state prev bs arr t)
-                          False =>
-                            case state == 0 of
-                              True  =>
-                                let () # t := set arr k'' Z t
-                                  in assert_total (loop (S k) base state prev bs arr t)
-                              False =>
-                                let () # t := set arr k'' prev t
-                                  in assert_total (loop (S k) base state prev bs arr t)
+    loop Z     cur patbyte bordcur bs arr t =
+      let idx # t := flattenIndex cur Z bs arr t
+        in case patbyte of
+             Nothing       =>
+               case cur == Z of
+                 True  =>
+                   set arr idx Z t
+                 False =>
+                   let fidx     # t := flattenIndex bordcur Z bs arr t
+                       bordcur' # t := get arr fidx t
+                     in set arr idx bordcur' t
+             Just patbyte' =>
+               case Z == (cast {to=Nat} patbyte') of
+                 True  =>
+                   set arr idx (S cur) t
+                 False =>
+                   case cur == Z of
+                     True  =>
+                       set arr idx Z t
+                     False =>
+                       let fidx     # t := flattenIndex bordcur Z bs arr t
+                           bordcur' # t := get arr fidx t
+                         in set arr idx bordcur' t
+    loop (S b) cur patbyte bordcur bs arr t =
+      let idx # t := flattenIndex cur (S b) bs arr t
+        in case patbyte of
+             Nothing       =>
+               case cur == Z of
+                 True  =>
+                   let () # t := set arr idx Z t
+                     in assert_total (loop b cur patbyte bordcur bs arr t)
+                 False =>
+                   let fidx     # t := flattenIndex bordcur (S b) bs arr t
+                       bordcur' # t := get arr fidx t
+                       ()       # t := set arr idx bordcur' t
+                     in assert_total (loop b cur patbyte bordcur' bs arr t)
+             Just patbyte' =>
+               case (S b) == (cast {to=Nat} patbyte') of
+                 True  =>
+                   let () # t := set arr idx (S cur) t
+                     in assert_total (loop b cur patbyte bordcur bs arr t)
+                 False =>
+                   case cur == Z of
+                     True  =>
+                       let () # t := set arr idx Z t
+                         in assert_total (loop b cur patbyte bordcur bs arr t)
+                     False =>
+                       let fidx     # t := flattenIndex bordcur (S b) bs arr t
+                           bordcur' # t := get arr fidx t
+                           ()       # t := set arr idx bordcur' t
+                         in assert_total (loop b cur patbyte bordcur' bs arr t)
+    fillState :  (cur : Nat)
+              -> (bs : ByteString)
+              -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
+              -> (bord : MArray s (S (length bs)) Nat)
+              -> F1' s
+    fillState cur bs arr bord t =
+      case tryNatToFin cur of
+        Nothing   =>
+          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.fillState: can't convert Nat to Fin") # t
+        Just cur' =>
+          let bordcur # t := get bord cur' t
+              patbyte     := index cur bs
+            in loop 255 cur patbyte bordcur bs arr t
     go :  (state : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
        -> (bord : MArray s (S (length bs)) Nat)
        -> F1' s
-    go Z         _  _    _   t =
-      () # t
-    go (S state) bs arr bord t =
-      let base := (cast {to=Int} state) `shiftL` 8
-        in case tryNatToFin (minus state 1) of
-             Nothing     =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
-             Just state''' =>
-               let state'''' # t := get bord state''' t
-                   ()        # t := loop 0 (cast {to=Nat} base) state state'''' bs arr t
-                 in assert_total (go state bs arr bord t)
+    go state bs arr bord t =
+      case state > (length bs) of
+        True  =>
+          () # t
+        False =>
+          let () # t := fillState state bs arr bord t
+            in assert_total (go (S state) bs arr bord t)
 
 --------------------------------------------------------------------------------
 --          Boyer-Moore Preprocessing
