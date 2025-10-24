@@ -129,24 +129,36 @@ automaton bs t =
     loop :  (k : Nat)
          -> (base : Nat)
          -> (state : Nat)
+         -> (prev : Nat)
          -> (bs : ByteString)
          -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
          -> F1' s
-    loop 256 _    _     _  _   t =
+    loop 256 _    _     _    _  _   t =
       () # t
-    loop k   base state bs arr t =
+    loop k   base state prev bs arr t =
       let k' := plus base k
         in case tryNatToFin k' of
              Nothing  =>
                (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.loop: can't convert Nat to Fin") # t
              Just k'' =>
-               let s # t := get arr k'' t
-                 in case s == 0 of
-                      True  =>
-                        let () # t := set arr k'' state t
-                          in assert_total (loop (S k) base state bs arr t)
-                      False =>
-                        assert_total (loop (S k) base state bs arr t)
+               let s  # t := get arr k'' t
+                   w      := index (minus state 1) bs
+                 in case w of
+                      Nothing =>
+                        (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton: can't index into ByteString") # t
+                      Just w' =>
+                        case k == (cast {to=Nat} w') of
+                          True  =>
+                            let () # t := set arr k'' (plus state 1) t
+                              in assert_total (loop (S k) base state prev bs arr t)
+                          False =>
+                            case state == 0 of
+                              True  =>
+                                let () # t := set arr k'' Z t
+                                  in assert_total (loop (S k) base state prev bs arr t)
+                              False =>
+                                let () # t := set arr k'' prev t
+                                  in assert_total (loop (S k) base state prev bs arr t)
     go :  (state : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
@@ -155,19 +167,14 @@ automaton bs t =
     go Z         _  _    _   t =
       () # t
     go (S state) bs arr bord t =
-      let state' := index (minus state 1) bs
-        in case state' of
-             Nothing      =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't index into ByteString") # t
-             Just state'' =>
-               let base   := (cast {to=Int} state) `shiftL` 8
-                   () # t := loop 0 (cast {to=Nat} base) state bs arr t
-                 in case tryNatToFin (minus state 1) of
-                      Nothing     =>
-                        (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
-                      Just state''' =>
-                        let state'''' # t := get bord state''' t
-                          in assert_total (go state'''' bs arr bord t)
+      let base := (cast {to=Int} state) `shiftL` 8
+        in case tryNatToFin (minus state 1) of
+             Nothing     =>
+               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.go: can't convert Nat to Fin") # t
+             Just state''' =>
+               let state'''' # t := get bord state''' t
+                   ()        # t := loop 0 (cast {to=Nat} base) state state'''' bs arr t
+                 in assert_total (go state bs arr bord t)
 
 --------------------------------------------------------------------------------
 --          Boyer-Moore Preprocessing
