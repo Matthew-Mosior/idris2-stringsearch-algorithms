@@ -27,10 +27,12 @@ import Data.So
 ||| Unlike the standard KMP table, this table is suffix-oriented and
 ||| built in a descending, structurally recursive manner.
 |||
-||| Example for "ANPANMAN" (indices 0..8):
+||| Example: ANPANMAN"
 |||
-||| Prefixes:   ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
-||| Borders:    0    0     0      0      1       2        0         1          2
+||| Indices: 0..8
+|||
+||| Prefixes: ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
+||| Borders:  0    0     0      0      1       2        0         1          2
 |||
 ||| The table helps efficiently skip positions in the pattern during
 ||| substring search, while descending from longer prefixes to shorter ones.
@@ -108,6 +110,40 @@ kmpBorders bs t =
 |||
 ||| Transition behavior is derived from the KMP border table (`kmpBorders`),
 ||| ensuring correct fallback transitions and eliminating redundant backtracking.
+|||
+||| Example: "ANPANMAN"
+|||
+||| These following equation is used to determine the "flat" index to build the automaton:
+|||
+||| flatindex = (state ∗ alphabetsize) + charcode
+|||
+||| Where:
+|||
+||| state : Range from 0 to length of the input pattern
+|||
+||| alphabetsize : All possible input characters (in this case extended ASCII, 8-bit range from 0 to 255)
+|||
+||| charcode : Characters are interpreted via its ASCII code ('A' = 65, 'M' = 77, 'N' = 78, 'P' = 80, and so on)
+|||
+||| The following is a table containing the expected "flat" indices and corresponding values
+||| given the input "ANPANMAN":
+|||
+||| | Flat index | State | Char code | Char | Meaning       |
+||| | ---------- | ----- | --------- | ---- | ------------- |
+||| | 65         | 0     | 65        | 'A'  | δ(0, 'A') = 1 |
+||| | 321        | 1     | 65        | 'A'  | δ(1, 'A') = 1 |
+||| | 334        | 1     | 78        | 'N'  | δ(1, 'N') = 2 |
+||| | 577        | 2     | 65        | 'A'  | δ(2, 'A') = 1 |
+||| | 592        | 2     | 80        | 'P'  | δ(2, 'P') = 3 |
+||| | 833        | 3     | 65        | 'A'  | δ(3, 'A') = 4 |
+||| | 1089       | 4     | 65        | 'A'  | δ(4, 'A') = 1 |
+||| | 1102       | 4     | 78        | 'N'  | δ(4, 'N') = 5 |
+||| | 1345       | 5     | 65        | 'A'  | δ(5, 'A') = 1 |
+||| | 1357       | 5     | 77        | 'M'  | δ(5, 'M') = 6 |
+||| | 1601       | 6     | 65        | 'A'  | δ(6, 'A') = 7 |
+||| | 1857       | 7     | 65        | 'A'  | δ(7, 'A') = 1 |
+||| | 1870       | 7     | 78        | 'N'  | δ(7, 'N') = 8 |
+||| | 2113       | 8     | 65        | 'A'  | δ(8, 'A') = 1 |
 export
 automaton :  (bs : ByteString)
           -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
