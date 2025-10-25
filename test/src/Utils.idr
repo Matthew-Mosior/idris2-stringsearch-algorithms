@@ -7,6 +7,7 @@ import Data.ByteString.Search.Internal.Utils
 import Data.Fin
 import Data.Linear.Ref1
 import Data.Linear.Token
+import Data.So
 import Data.Vect
 
 ||| prop_kmpBorders: "ANPANMAN"
@@ -72,11 +73,38 @@ prop_automaton = property1 $
                                                                                                  , (1857, 1)
                                                                                                  , (1870, 8)
                                                                                                  , (2113, 1)
-                                                                                                 ]
-                                                                                                
+                                                                                                 ]                  
+
+||| prop_suffixLengths: "ANPANMAN"
+|||
+||| | Index | Value | Explanation       |
+||| | ----- | ----- | ----------------- |
+||| | 0     | 0     | border(0) = 0     |
+||| | 1     | 0     | "A" → no border   |
+||| | 2     | 0     | "AN" → no border  |
+||| | 3     | 0     | "ANP" → no border |
+||| | 4     | 1     | "ANPA" → "A"      |
+||| | 5     | 2     | "ANPAN" → "AN"    |
+||| | 6     | 0     | "ANPANM" → none   |
+||| | 7     | 1     | "ANPANMA" → "A"   |
+||| | 8     | 2     | "ANPANMAN" → "AN" |
+prop_suffixLengths : Property
+prop_suffixLengths = property1 $
+  let pat   := Prelude.unpack "ANPANMAN"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _          =>
+           assert_total $ idris_crash "awef"
+         Yes notnullprf =>
+           ( run1 $ \t =>
+               let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
+                   suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
+                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,0,0,0,1,2,0,1,2]
+
 export
 props : Group
 props = MkGroup "Utils"
   [ ("prop_kmpBorders", prop_kmpBorders)
   , ("prop_automaton", prop_automaton)
+  , ("prop_suffixLengths", prop_suffixLengths)
   ]
