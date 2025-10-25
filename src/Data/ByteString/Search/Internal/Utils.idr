@@ -27,15 +27,15 @@ import Data.So
 ||| Unlike the standard KMP table, this table is suffix-oriented and
 ||| built in a descending, structurally recursive manner.
 |||
+||| The table helps efficiently skip positions in the pattern during
+||| substring search, while descending from longer prefixes to shorter ones.
+|||
 ||| Example: ANPANMAN"
 |||
 ||| Indices: 0..8
 |||
 ||| Prefixes: ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
 ||| Borders:  0    0     0      0      1       2        0         1          2
-|||
-||| The table helps efficiently skip positions in the pattern during
-||| substring search, while descending from longer prefixes to shorter ones.
 export
 kmpBorders :  (bs : ByteString)
            -> F1 s (MArray s (S (length bs)) Nat)
@@ -124,9 +124,6 @@ kmpBorders bs t =
 ||| alphabetsize : All possible input characters (in this case extended ASCII, 8-bit range from 0 to 255)
 |||
 ||| charcode : Characters are interpreted via its ASCII code ('A' = 65, 'M' = 77, 'N' = 78, 'P' = 80, and so on)
-|||
-||| The following is a table containing the expected "flat" indices and corresponding values
-||| given the input "ANPANMAN":
 |||
 ||| | Flat index | State | Char code | Char | Meaning       |
 ||| | ---------- | ----- | --------- | ---- | ------------- |
