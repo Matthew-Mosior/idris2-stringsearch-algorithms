@@ -9,7 +9,7 @@ import Data.Linear.Ref1
 import Data.Linear.Token
 import Data.Vect
 
-||| kmpBorders: "ANPANMAN"
+||| prop_kmpBorders: "ANPANMAN"
 |||  
 ||| | Index | Value | Explanation       |
 ||| | ----- | ----- | ----------------- |
@@ -31,7 +31,7 @@ prop_kmpBorders = property1 $
           kmpborders' # t := Data.Array.Core.freeze kmpborders t
         in Prelude.Interfaces.toList kmpborders' # t ) === [0,0,0,0,1,2,0,1,2]
 
-||| automaton : "ANPANMAN"
+||| prop_automaton : "ANPANMAN"
 |||
 ||| | Flat index | Value | Meaning (decoded) |
 ||| | ---------- | ----- | ----------------- |
