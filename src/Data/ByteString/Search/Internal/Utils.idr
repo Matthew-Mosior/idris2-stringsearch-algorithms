@@ -95,18 +95,19 @@ kmpBorders bs t =
 
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||
-||| This automaton maps (state, input byte) pairs to the next state, enabling
-||| efficient scanning of input text to find occurrences of the pattern. It
-||| represents a flattened transition table of size `((length of pattern) + 1) * 256`,
-||| where 256 corresponds to the number of possible byte values (0–255).
+||| The automaton encodes transitions from (state, input byte) → next state,
+||| allowing efficient streaming search for the pattern within input data.
 |||
-||| Each state represents a prefix of the pattern:
-||| - State 0: empty prefix
+||| It produces a flattened transition table of size `((length pattern) + 1) * 256`,
+||| where 256 corresponds to all possible byte values (0–255).
+|||
+||| States correspond to pattern prefixes:
+||| - State 0: no match (empty prefix)
 ||| - State i: matched the first i bytes of the pattern
-||| - Final state: full match (pattern length)
+||| - State (length pattern): full match
 |||
-||| Transitions are initialized using the KMP border table, generated via `kmpBorders`,
-||| to ensure correct failure transitions, avoiding redundant backtracking.
+||| Transition behavior is derived from the KMP border table (`kmpBorders`),
+||| ensuring correct fallback transitions and eliminating redundant backtracking.
 export
 automaton :  (bs : ByteString)
           -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
