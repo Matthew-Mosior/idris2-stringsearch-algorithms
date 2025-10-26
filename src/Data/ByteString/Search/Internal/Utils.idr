@@ -300,52 +300,82 @@ occurrences bs t =
                    let () # t := set arr i''' i t
                      in go i bs arr t
 
-||| Table of suffix-lengths.
+||| Builds the table of suffix lengths for the given pattern.
 |||
-||| The value of this array at place i is the length of the longest common
-||| suffix of the entire pattern and the prefix of the pattern ending at
-||| position i.
+||| The value at index `i` is the length of the longest common suffix
+||| between the entire pattern and the prefix of the pattern ending at `i`.
 |||
-||| Usually, most of the entries will be 0. Only if the byte at position i
-||| is the same as the last byte of the pattern can the value be positive.
-||| In any case the value at index patend is patlen (since the pattern is
-||| identical to itself) and 0 <= value at i <= (i + 1).
+||| Typically, most entries are 0. Only when the byte at position `i`
+||| matches the final byte of the pattern can the value be positive.
 |||
-||| To keep this part of preprocessing linear in the length of the pattern,
-||| the implementation must be non-obvious (the obvious algorithm for this
-||| is quadratic).
+||| The final entry (at `patEnd`) equals the pattern length, since the
+||| pattern is identical to itself. In general, `0 <= ar[i] <= i + 1`.
 |||
-||| When the index under consideration is inside a previously identified
-||| common suffix, we align that suffix with the end of the pattern and
-||| check whether the suffix ending at the position corresponding to idx
-||| is shorter than the part of the suffix up to idx. If that is the case,
-||| the length of the suffix ending at idx is that of the suffix at the
-||| corresponding position. Otherwise extend the suffix as far as possible.
-||| If the index under consideration is not inside a previously identified
-||| common suffix, compare with the last byte of the pattern. If that gives
-||| a suffix of length > 1, for the next index we're in the previous
-||| situation, otherwise we're back in the same situation for the next
-||| index.
+||| To ensure linear preprocessing, the algorithm avoids the naive
+||| quadratic approach by reusing information from previously identified
+||| suffixes.
+|||
+||| When the current index lies within an already known suffix, we align
+||| that suffix with the end of the pattern and check whether it extends
+||| beyond the current position. If so, we reuse the stored suffix length;
+||| otherwise, we extend the suffix explicitly.
+|||
+||| If the current index lies outside any known suffix, we compare against
+||| the final byte of the pattern. If this yields a suffix of length > 1,
+||| we enter the “known suffix” case for subsequent indices; otherwise,
+||| we continue scanning normally.
+|||
+||| Example : "ANPANMAN"
+|||
+||| Raw suffix-lengths array used to compute the good suffix shift table
+|||
+||| | i | pat[i] | matches pattern end? | diff | nextI | prevI | ar[i] |
+||| | - | ------ | -------------------- | ---- | ----- | ----- | ----- |
+||| | 0 | A      | No                   | -    | -     | -     | 0     |
+||| | 1 | N      | Yes                  | 6    | 0     | 0     | 1     |
+||| | 2 | P      | No                   | -    | -     | -     | 0     |
+||| | 3 | A      | No                   | -    | -     | -     | 0     |
+||| | 4 | N      | Yes                  | 3    | 3     | 3     | 1     |
+||| | 5 | M      | No                   | -    | -     | -     | 0     |
+||| | 6 | A      | No                   | -    | -     | -     | 0     |
+||| | 7 | N      | -                    | -    | -     | -     | 8     |
 export
 suffixLengths :  (bs : ByteString)
               -> {0 prf : So (not $ null bs)}
               -> F1 s (MArray s (length bs) Nat)
 suffixLengths bs t =
-  let arr # t := unsafeMArray1 (length bs) t
-      ()  # t := noSuffix (length bs) bs arr t
-    in arr # t
+  let arr # t := marray1 (length bs) (the Nat 0) t
+    in case tryNatToFin (minus (length bs) 1) of
+         Nothing  =>
+           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths: can't convert Nat to Fin") # t
+         Just idx =>
+           let () # t := set arr idx (length bs) t
+               () # t := noSuffix (minus (length bs) 2) bs arr t
+             in arr # t
   where
     dec :  (diff : Nat)
         -> (j : Nat)
         -> F1 s Nat
     dec diff j t =
-      let j'  := index j bs
-          j'' := index (plus j diff) bs
-        in case j < 0 || j' /= j'' of
-             True  =>
-               j # t
-             False =>
-               assert_total (dec diff (minus j 1) t)
+      case j == Z of
+        True  =>
+          j # t
+        False =>
+          let j'  := index j bs
+            in case j' of
+                 Nothing  =>
+                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.dec: can't index into ByteString") # t
+                 Just j'' =>
+                   let j''' := index (plus j diff) bs
+                     in case j''' of
+                          Nothing    =>
+                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.dec: can't index into ByteString") # t
+                          Just j'''' =>
+                            case j'' /= j'''' of
+                              True  =>
+                                j # t
+                              False =>
+                                assert_total (dec diff (minus j 1) t)
     mutual
       suffixLoop :  (pre : Nat)
                  -> (end : Nat)
@@ -359,33 +389,41 @@ suffixLengths bs t =
         case pre < (S idx) of
           True  =>
             let idx'  := index (S idx) bs
-                idx'' := index (length bs) bs
-              in case idx' /= idx'' of
-                   True  =>
-                     case tryNatToFin (S idx) of
-                       Nothing     =>
-                         (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
-                       Just idx''' =>
-                         let () # t := set arr idx''' 0 t
-                           in assert_total (suffixLoop pre (minus end 1) idx bs arr t)
-                   False =>
-                     case tryNatToFin end of
-                       Nothing   =>
-                         (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
-                       Just end' =>
-                         let prevs # t := get arr end' t
-                           in case tryNatToFin (S idx) of
-                                Nothing   =>
-                                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
-                                Just idx' =>
-                                  case (plus pre prevs) < (S idx) of
-                                    True  =>
-                                      let () # t := set arr idx' prevs t
+              in case idx' of
+                   Nothing    =>
+                     (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't index into ByteString") # t
+                   Just idx'' =>
+                     let idx''' := index (minus (length bs) 1) bs
+                       in case idx''' of
+                            Nothing      =>
+                              (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't index into ByteString") # t
+                            Just idx'''' =>
+                              case idx'' /= idx'''' of
+                                True  =>
+                                  case tryNatToFin (S idx) of
+                                    Nothing   =>
+                                      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                                    Just idxs =>
+                                      let () # t := set arr idxs 0 t
                                         in assert_total (suffixLoop pre (minus end 1) idx bs arr t)
-                                    False =>
-                                      let pri # t := dec (minus (length bs) (S idx)) pre t
-                                          ()  # t := set arr idx' (minus (S idx) pri) t
-                                        in assert_total (suffixLoop pri (minus (length bs) 1) idx bs arr t)
+                                False =>
+                                  case tryNatToFin end of
+                                    Nothing   =>
+                                      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                                    Just end' =>
+                                      let prevs # t := get arr end' t
+                                        in case tryNatToFin (S idx) of
+                                             Nothing   =>
+                                               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                                             Just idxs =>
+                                               case (plus pre prevs) < (S idx) of
+                                                 True  =>
+                                                   let () # t := set arr idxs prevs t
+                                                     in assert_total (suffixLoop pre (minus end 1) idx bs arr t)
+                                                 False =>
+                                                   let pri # t := dec (minus (length bs) (S idx)) pre t
+                                                       ()  # t := set arr idxs (minus (S idx) pri) t
+                                                     in assert_total (suffixLoop pri (minus (length bs) 2) idx bs arr t)
           False =>
             noSuffix (S idx) bs arr t
       noSuffix :  (i : Nat)
@@ -400,7 +438,7 @@ suffixLengths bs t =
                Nothing  =>
                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't index into ByteString") # t
                Just patati' =>
-                 let patatend := index (length bs) bs
+                 let patatend := index (minus (length bs) 1) bs
                    in case patatend of
                         Nothing        =>
                           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't index into ByteString") # t
@@ -420,7 +458,7 @@ suffixLengths bs t =
                                              in assert_total (noSuffix nexti bs arr t)
                                          False =>
                                            let () # t := set arr i' (minus i previ) t
-                                             in assert_total (suffixLoop previ (minus (length bs) 1) nexti bs arr t)
+                                             in assert_total (suffixLoop previ (minus (length bs) 2) nexti bs arr t)
                             False =>
                               case tryNatToFin i of
                                 Nothing =>

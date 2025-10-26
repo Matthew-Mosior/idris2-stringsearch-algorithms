@@ -77,17 +77,18 @@ prop_automaton = property1 $
 
 ||| prop_suffixLengths: "ANPANMAN"
 |||
-||| | Index | Value | Explanation       |
-||| | ----- | ----- | ----------------- |
-||| | 0     | 0     | border(0) = 0     |
-||| | 1     | 0     | "A" → no border   |
-||| | 2     | 0     | "AN" → no border  |
-||| | 3     | 0     | "ANP" → no border |
-||| | 4     | 1     | "ANPA" → "A"      |
-||| | 5     | 2     | "ANPAN" → "AN"    |
-||| | 6     | 0     | "ANPANM" → none   |
-||| | 7     | 1     | "ANPANMA" → "A"   |
-||| | 8     | 2     | "ANPANMAN" → "AN" |
+||| Raw suffix-lengths array used to compute the good suffix shift table
+|||
+||| | i | pat[i] | matches pattern end? | diff | nextI | prevI | ar[i] |
+||| | - | ------ | -------------------- | ---- | ----- | ----- | ----- |
+||| | 0 | A      | No                   | -    | -     | -     | 0     |
+||| | 1 | N      | Yes                  | 6    | 0     | 0     | 1     |
+||| | 2 | P      | No                   | -    | -     | -     | 0     |
+||| | 3 | A      | No                   | -    | -     | -     | 0     |
+||| | 4 | N      | Yes                  | 3    | 3     | 3     | 1     |
+||| | 5 | M      | No                   | -    | -     | -     | 0     |
+||| | 6 | A      | No                   | -    | -     | -     | 0     |
+||| | 7 | N      | -                    | -    | -     | -     | 8     |
 prop_suffixLengths : Property
 prop_suffixLengths = property1 $
   let pat   := Prelude.unpack "ANPANMAN"
@@ -99,7 +100,7 @@ prop_suffixLengths = property1 $
            ( run1 $ \t =>
                let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
                    suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
-                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,0,0,0,1,2,0,1,2]
+                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,1,0,0,1,0,0,8]
 
 export
 props : Group
