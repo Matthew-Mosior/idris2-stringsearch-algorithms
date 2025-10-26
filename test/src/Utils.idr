@@ -75,6 +75,33 @@ prop_automaton = property1 $
                                                                                                  , (2113, 1)
                                                                                                  ]                  
 
+||| prop_occurrences: "ANPANMAN"
+|||
+||| Raw suffix-lengths array used to compute the good suffix shift table
+|||
+||| | i | pat[i] | matches pattern end? | diff | nextI | prevI | ar[i] |
+||| | - | ------ | -------------------- | ---- | ----- | ----- | ----- |
+||| | 0 | A      | No                   | -    | -     | -     | 0     |
+||| | 1 | N      | Yes                  | 6    | 0     | 0     | 1     |
+||| | 2 | P      | No                   | -    | -     | -     | 0     |
+||| | 3 | A      | No                   | -    | -     | -     | 0     |
+||| | 4 | N      | Yes                  | 3    | 3     | 3     | 1     |
+||| | 5 | M      | No                   | -    | -     | -     | 0     |
+||| | 6 | A      | No                   | -    | -     | -     | 0     |
+||| | 7 | N      | -                    | -    | -     | -     | 8     |
+prop_occurrences : Property
+prop_occurrences = property1 $
+  let pat   := Prelude.unpack "ANPANMAN"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _          =>
+           assert_total $ idris_crash "awef"
+         Yes notnullprf =>
+           ( run1 $ \t =>
+               let occurrences'  # t := occurrences patbs {prf=notnullprf} t
+                   occurrences'' # t := Data.Array.Core.freeze occurrences' t
+                 in Prelude.Interfaces.toList occurrences'' # t ) === [0,1,0,0,1,0,0,8]
+
 ||| prop_suffixLengths: "ANPANMAN"
 |||
 ||| Raw suffix-lengths array used to compute the good suffix shift table
@@ -107,5 +134,6 @@ props : Group
 props = MkGroup "Utils"
   [ ("prop_kmpBorders", prop_kmpBorders)
   , ("prop_automaton", prop_automaton)
+  , ("prop_occurrences", prop_occurrences)
   , ("prop_suffixLengths", prop_suffixLengths)
   ]

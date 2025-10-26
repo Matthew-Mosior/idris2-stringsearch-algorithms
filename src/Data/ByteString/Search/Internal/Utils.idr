@@ -274,7 +274,7 @@ automaton bs t =
 ||| O((length of pattern) + (alphabet size))
 export
 occurrences :  (bs : ByteString)
-            -> {0 _ : So (not $ null bs)}
+            -> {0 prf : So (not $ null bs)}
             -> F1 s (MArray s 256 Nat)
 occurrences bs t =
   let arr # t := marray1 256 (the Nat 1) t
