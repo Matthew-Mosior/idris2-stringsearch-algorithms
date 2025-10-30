@@ -272,33 +272,45 @@ automaton bs t =
 ||| algorithms to determine optimal skip distances after mismatches.
 |||
 ||| O((length of pattern) + (alphabet size))
+|||
+||| Example: "ANPANMAN"
+|||
+||| | Flat index / ASCII | char | value |
+||| | ------------------ | ---- | ----- |
+||| |        65          | 'A'  |    -6 |
+||| |        77          | 'M'  |    -5 |
+||| |        78          | 'N'  |    -4 |
+||| |        80          | 'P'  |    -2 |
 export
 occurrences :  (bs : ByteString)
             -> {0 prf : So (not $ null bs)}
-            -> F1 s (MArray s 256 Nat)
+            -> F1 s (MArray s 256 Int)
 occurrences bs t =
-  let arr # t := marray1 256 (the Nat 1) t
-      ()  # t := go (length bs) bs arr t
+  let arr # t := marray1 256 (the Int 1) t
+      ()  # t := go Z (minus (length bs) 1) bs arr t
     in arr # t
   where
     go :  (i : Nat)
+       -> (patend : Nat)
        -> (bs : ByteString)
-       -> (arr : MArray s 256 Nat)
+       -> (arr : MArray s 256 Int)
        -> F1' s
-    go Z     _  _   t =
-      () # t
-    go (S i) bs arr t =
-      let i' := index i bs
-        in case i' of
-             Nothing  =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't index into ByteString") # t
-             Just i'' =>
-               case tryNatToFin (cast {to=Nat} i'') of
+    go i patend bs arr t =
+      case i == patend of
+        True  =>
+          () # t
+        False =>
+          let i' := index i bs
+            in case i' of
                  Nothing  =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't convert Nat to Fin") # t
-                 Just i''' =>
-                   let () # t := set arr i''' i t
-                     in go i bs arr t
+                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't index into ByteString") # t
+                 Just i'' =>
+                   case tryNatToFin (cast {to=Nat} i'') of
+                     Nothing  =>
+                       (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't convert Nat to Fin") # t
+                     Just i''' =>
+                       let () # t := set arr i''' (negate $ cast {to=Int} i) t
+                         in assert_total (go (plus i 1) patend bs arr t)
 
 ||| Builds the table of suffix lengths for the given pattern.
 |||
