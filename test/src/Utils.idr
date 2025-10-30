@@ -23,6 +23,7 @@ import Data.Vect
 ||| | 6     | 0     | "ANPANM" → none   |
 ||| | 7     | 1     | "ANPANMA" → "A"   |
 ||| | 8     | 2     | "ANPANMAN" → "AN" |
+|||
 prop_kmpBorders : Property
 prop_kmpBorders = property1 $
   ( run1 $ \t =>
@@ -50,6 +51,7 @@ prop_kmpBorders = property1 $
 ||| | 1857       | 1     | δ(7, 'A') = 1     |
 ||| | 1870       | 8     | δ(7, 'N') = 8     |
 ||| | 2113       | 1     | δ(8, 'A') = 1     |
+|||
 prop_automaton : Property
 prop_automaton = property1 $
   ( run1 $ \t =>
@@ -83,6 +85,7 @@ prop_automaton = property1 $
 ||| |        77          | 'M'  |    -5 |
 ||| |        78          | 'N'  |    -4 |
 ||| |        80          | 'P'  |    -2 |
+|||
 prop_occurrences : Property
 prop_occurrences = property1 $
   let pat   := Prelude.unpack "ANPANMAN"
@@ -116,6 +119,7 @@ prop_occurrences = property1 $
 ||| | 5 | M      | No                   | -    | -     | -     | 0     |
 ||| | 6 | A      | No                   | -    | -     | -     | 0     |
 ||| | 7 | N      | -                    | -    | -     | -     | 8     |
+|||
 prop_suffixLengths : Property
 prop_suffixLengths = property1 $
   let pat   := Prelude.unpack "ANPANMAN"
@@ -129,6 +133,31 @@ prop_suffixLengths = property1 $
                    suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
                  in Prelude.Interfaces.toList suffixlengths' # t ) === [0,1,0,0,1,0,0,8]
 
+||| prop_suffixShifts: "ANPANMAN"
+|||
+|||| | idx | suff[idx] | target = 7 - suff[idx] | value = 7 - idx | array after write | What's changing            |
+|||| | --- | --------- | ---------------------- | --------------- | ----------------- | -------------------------- |
+|||| | 0   | 1         | 6                      | 7               | [8,8,8,8,8,8,7,8] | arr[6] updated             |
+|||| | 1   | 1         | 6                      | 6               | [8,8,8,8,8,8,6,8] | arr[6] overwritten         |
+|||| | 2   | 1         | 6                      | 5               | [8,8,8,8,8,8,5,8] | arr[6] overwritten         |
+|||| | 3   | 1         | 6                      | 4               | [8,8,8,8,8,8,4,8] | arr[6] overwritten         |
+|||| | 4   | 1         | 6                      | 3               | [8,8,8,8,8,8,3,8] | arr[6] overwritten         |
+|||| | 5   | 1         | 6                      | 2               | [8,8,8,8,8,8,2,8] | arr[6] overwritten         |
+|||| | 6   | 3         | 4                      | 1               | [8,8,8,8,8,8,3,1] | arr[4] updated, arr[7] = 1 |
+|||
+prop_suffixShifts : Property
+prop_suffixShifts = property1 $
+  let pat   := Prelude.unpack "ANPANMAN"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _          =>
+           assert_total $ idris_crash "awef"
+         Yes notnullprf =>
+           ( run1 $ \t =>
+               let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
+                   suffixshifts' # t := Data.Array.Core.freeze suffixshifts t
+                 in Prelude.Interfaces.toList suffixshifts' # t ) === [8,8,8,8,8,8,3,1]
+
 export
 props : Group
 props = MkGroup "Utils"
@@ -136,4 +165,5 @@ props = MkGroup "Utils"
   , ("prop_automaton", prop_automaton)
   , ("prop_occurrences", prop_occurrences)
   , ("prop_suffixLengths", prop_suffixLengths)
+  , ("prop_suffixShifts", prop_suffixShifts)
   ]

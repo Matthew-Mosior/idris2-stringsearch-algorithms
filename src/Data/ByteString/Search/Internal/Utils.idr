@@ -36,6 +36,7 @@ import Data.So
 |||
 ||| Prefixes: ""   "A"   "AN"   "ANP"  "ANPA"  "ANPAN"  "ANPANM"  "ANPANMA"  "ANPANMAN"
 ||| Borders:  0    0     0      0      1       2        0         1          2
+|||
 export
 kmpBorders :  (bs : ByteString)
            -> F1 s (MArray s (S (length bs)) Nat)
@@ -141,6 +142,7 @@ kmpBorders bs t =
 ||| | 1857       | 7     | 65        | 'A'  | δ(7, 'A') = 1 |
 ||| | 1870       | 7     | 78        | 'N'  | δ(7, 'N') = 8 |
 ||| | 2113       | 8     | 65        | 'A'  | δ(8, 'A') = 1 |
+|||
 export
 automaton :  (bs : ByteString)
           -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
@@ -281,13 +283,14 @@ automaton bs t =
 ||| |        77          | 'M'  |    -5 |
 ||| |        78          | 'N'  |    -4 |
 ||| |        80          | 'P'  |    -2 |
+|||
 export
 occurrences :  (bs : ByteString)
             -> {0 prf : So (not $ null bs)}
             -> F1 s (MArray s 256 Int)
 occurrences bs t =
   let arr # t := marray1 256 (the Int 1) t
-      ()  # t := go Z (minus (length bs) 1) bs arr t
+      ()  # t := go Z (length bs) bs arr t
     in arr # t
   where
     go :  (i : Nat)
@@ -296,7 +299,7 @@ occurrences bs t =
        -> (arr : MArray s 256 Int)
        -> F1' s
     go i patend bs arr t =
-      case i == patend of
+      case (S i) >= patend of
         True  =>
           () # t
         False =>
@@ -351,6 +354,7 @@ occurrences bs t =
 ||| | 5 | M      | No                   | -    | -     | -     | 0     |
 ||| | 6 | A      | No                   | -    | -     | -     | 0     |
 ||| | 7 | N      | -                    | -    | -     | -     | 8     |
+|||
 export
 suffixLengths :  (bs : ByteString)
               -> {0 prf : So (not $ null bs)}
@@ -514,6 +518,19 @@ suffixLengths bs t =
 ||| To compute the suffix-shifts, we use an array containing the lengths of
 ||| the longest common suffixes of the entire pattern and its prefix ending
 ||| with position pos.
+|||
+||| Example: "ANPANMAN"
+|||
+||| | idx | suff[idx] | target = 7 - suff[idx] | value = 7 - idx | arr after write   | Notes                      |
+||| | --- | --------- | ---------------------- | --------------- | ----------------- | -------------------------- |
+||| | 0   | 1         | 6                      | 7               | [8,8,8,8,8,8,7,8] | arr[6] updated             |
+||| | 1   | 1         | 6                      | 6               | [8,8,8,8,8,8,6,8] | arr[6] overwritten         |
+||| | 2   | 1         | 6                      | 5               | [8,8,8,8,8,8,5,8] | arr[6] overwritten         |
+||| | 3   | 1         | 6                      | 4               | [8,8,8,8,8,8,4,8] | arr[6] overwritten         |
+||| | 4   | 1         | 6                      | 3               | [8,8,8,8,8,8,3,8] | arr[6] overwritten         |
+||| | 5   | 1         | 6                      | 2               | [8,8,8,8,8,8,2,8] | arr[6] overwritten         |
+||| | 6   | 3         | 4                      | 1               | [8,8,8,8,8,8,3,1] | arr[4] updated, arr[7] = 1 |
+|||
 export
 suffixShifts :  (bs : ByteString)
              -> {0 prf : So (not $ null bs)}
@@ -521,8 +538,8 @@ suffixShifts :  (bs : ByteString)
 suffixShifts bs {prf} t =
   let arr  # t := marray1 (length bs) (length bs) t
       suff # t := suffixLengths bs {prf=prf} t
-      ()   # t := prefixShift (minus (length bs) 2) 0 bs suff arr t
-      ()   # t := suffixShift (minus (length bs) 1) bs suff arr t
+      ()   # t := prefixShift (minus (length bs) 2) Z bs suff arr t
+      ()   # t := suffixShift Z bs suff arr t
     in arr # t
   where
     fillToShift :  (i : Nat)
@@ -550,15 +567,16 @@ suffixShifts bs {prf} t =
     prefixShift Z       _ _  _    _   t =
       () # t
     prefixShift (S idx) j bs suff arr t =
-      case tryNatToFin idx of
+      case tryNatToFin (S idx) of
         Nothing   =>
           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.prefixShift: can't convert Nat to Fin") # t
         Just idx' =>
-          let idx'' # t := get arr idx' t
-            in case idx'' == (plus idx 1) of
+          let idx'' # t := get suff idx' t
+            in case idx'' == (S (S idx)) of
                  True =>
-                   let () # t := fillToShift j (minus (minus (length bs) 1) idx) bs arr t
-                     in assert_total (prefixShift (minus idx 1) (length bs) bs suff arr t)                                      
+                   let shift  := minus (length bs) (S idx)
+                       () # t := fillToShift j shift bs arr t
+                     in assert_total (prefixShift idx shift bs suff arr t)                                      
                  False =>
                    assert_total (prefixShift idx j bs suff arr t)
     suffixShift :  (idx : Nat)
@@ -566,17 +584,27 @@ suffixShifts bs {prf} t =
                 -> (suff : MArray s (length bs) Nat)
                 -> (arr : MArray s (length bs) Nat)
                 -> F1' s
-    suffixShift Z       _  _    _   t =
-      () # t
-    suffixShift (S idx) bs suff arr t =
-      case tryNatToFin idx of
-        Nothing   =>
-          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.suffixShift: can't convert Nat to Fin") # t
-        Just idx' =>
-          let idx'' # t := get suff idx' t
-            in case tryNatToFin (minus (length bs) idx'') of
-                 Nothing     =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.suffixShift: can't convert Nat to Fin") # t
-                 Just idx''' =>
-                   let () # t := set arr idx''' (minus (length bs) idx) t
-                     in assert_total (suffixShift idx bs suff arr t)
+    suffixShift idx bs suff arr t =
+      let patend := minus (length bs) 1
+        in case idx > patend of
+             True  =>
+               () # t
+             False =>
+               case idx == patend of
+                 True  =>
+                   () # t
+                 False =>
+                   case tryNatToFin idx of
+                     Nothing   =>
+                       (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.suffixShift: can't convert Nat to Fin") # t
+                     Just idx' =>
+                       let idx'' # t := get suff idx' t
+                           patend'   := minus (length bs) 1
+                           target    := minus patend' idx''
+                         in case tryNatToFin target of
+                              Nothing      =>
+                                (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.suffixShift: can't convert Nat to Fin") # t
+                              Just target' =>
+                                let value  := minus patend' idx
+                                    () # t := set arr target' value t
+                                  in assert_total (suffixShift (plus idx 1) bs suff arr t)
