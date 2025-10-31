@@ -12,7 +12,7 @@ import Data.Vect
 
 ||| prop_kmpBorders: "ANPANMAN"
 |||  
-||| | Index | Value | Explanation       |
+||| | index | value | explanation       |
 ||| | ----- | ----- | ----------------- |
 ||| | 0     | 0     | border(0) = 0     |
 ||| | 1     | 0     | "A" → no border   |
@@ -35,7 +35,7 @@ prop_kmpBorders = property1 $
 
 ||| prop_automaton : "ANPANMAN"
 |||
-||| | Flat index | Value | Meaning (decoded) |
+||| | flat index | value | meaning (decoded) |
 ||| | ---------- | ----- | ----------------- |
 ||| | 65         | 1     | δ(0, 'A') = 1     |
 ||| | 321        | 1     | δ(1, 'A') = 1     |
@@ -79,7 +79,7 @@ prop_automaton = property1 $
 
 ||| prop_occurrences: "ANPANMAN"
 |||
-||| | Flat index / ASCII | char | value |
+||| | flat index / ASCII | char | value |
 ||| | ------------------ | ---- | ----- |
 ||| |        65          | 'A'  |    -6 |
 ||| |        77          | 'M'  |    -5 |
