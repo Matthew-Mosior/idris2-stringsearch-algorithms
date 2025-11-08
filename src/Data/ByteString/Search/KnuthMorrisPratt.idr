@@ -1,5 +1,5 @@
 ||| Fast Knuth-Morris-Pratt search of ByteStrings
-module Data.ByteString.Search.Internal.KnuthMorrisPratt
+module Data.ByteString.Search.KnuthMorrisPratt
 
 import Data.Array.Core
 import Data.Array.Mutable
