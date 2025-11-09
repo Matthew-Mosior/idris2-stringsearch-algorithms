@@ -40,18 +40,35 @@ matcher overlap pat chunks t =
             prior' := plus prior l
             s'     := [ prior' | i <- [1..l]]
           in s' ++ go prior' ss t
-      findMatch :  (pati : Nat)
+      findMatch :  (prior : Nat)
+                -> (pati : Nat)
                 -> (stri : Nat)
                 -> (pat : ByteString)
                 -> (strs : List ByteString)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
                 -> F1 s (List Nat)
-      findMatch pati stri pat strs@(str::rest) bords overlap t =
+      findMatch prior pati stri pat strs@(str::rest) bords overlap t =
         let patlen := length pat
           in case pati == patlen of
                True  =>
                  case overlap of
+                   True  =>
+                     case tryNatToFin patlen of
+                       Nothing   =>
+                         (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
+                       Just ami =>
+                         let strlen := length str
+                             ami'   := minus (plus prior strlen) patlen 
+                           in case ami == Z of
+                                True  =>
+                                  ami' :: (checkHead (S stri) pat str bords t)
+                                False =>
+                                  ami' :: (findMatch prior ami stri pat strs bords overlap t)
+                   False =>
+                     let strlen := length str
+                         ami'   := minus (plus prior strlen) patlen 
+                       in ami' :: (checkHead (S stri) pat str bords t)
                False =>
                  let strlen := length str
                    in case stri == strlen of
@@ -84,14 +101,15 @@ matcher overlap pat chunks t =
                                                              assert_total (findMatch pati'''' stri pat str bords t)
       checkHead :  (stri : Nat)
                 -> (pat : ByteString)
-                -> (str : ByteString)
+                -> (strs : List ByteString)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
                 -> F1 s (List Nat)
-      checkHead stri pat str bords overlap t =
+      checkHead stri pat strs@(str::rest) bords overlap t =
         let strlen := length str
           in case stri == strlen of
                True  =>
+                 searcher (plus prior strlen) Z pat rest bords overlap t
                False =>
                  let stri' := index stri str
                    in case stri' of
@@ -118,6 +136,6 @@ matcher overlap pat chunks t =
       searcher _     _      _   []            _     _       t =
         [] # t
       searcher _     Z      pat strs@(str::_) bords overlap t =
-        checkHead Z pat str bords overlap t
+        checkHead Z pat strs bords overlap t
       searcher prior patpos pat strs          bords overlap t =
-        findMatch patpos Z pat strs bords overlap t
+        findMatch prior patpos Z pat strs bords overlap t
