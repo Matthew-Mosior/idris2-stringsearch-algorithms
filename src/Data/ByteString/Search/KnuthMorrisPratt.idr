@@ -23,23 +23,25 @@ matcher :  Bool
 matcher overlap pat chunks t =
   case null pat of
     True  =>
-      let chunks' # t := go Z chunks t
+      let chunks' # t := go Z chunks Lin t
         in Z :: chunks # t
     False =>
       let bords # t := kmpBorders pat t
         in searcher Z Z pat chunks bords overlap t
   where
+    go :  Nat
+       -> List ByteString
+       -> SnocList Nat
+       -> F1 s (List Nat)
+    go _     []      sl t =
+      (sl <>> []) # t
+    go prior (s::ss) sl t =
+      let l      := length s
+          prior' := plus prior l
+          s'     := [ prior' | i <- [1..l] ]
+          sl'    := sl <>< s'
+        in go prior' ss sl' t
     mutual
-      go :  Nat
-         -> List ByteString
-         -> F1 s (List ByteString)
-      go _     []     t =
-        [] # t
-      go prior (s:ss) t =
-        let l      := length s
-            prior' := plus prior l
-            s'     := [ prior' | i <- [1..l]]
-          in s' ++ go prior' ss t
       findMatch :  (prior : Nat)
                 -> (pati : Nat)
                 -> (stri : Nat)
@@ -60,9 +62,9 @@ matcher overlap pat chunks t =
                        Just ami =>
                          let strlen := length str
                              ami'   := minus (plus prior strlen) patlen 
-                           in case ami == Z of
+                           in case (finToNat ami) == Z of
                                 True  =>
-                                  ami' :: (checkHead (S stri) pat str bords t)
+                                  ami' :: (checkHead (S stri) pat strs bords overlap t)
                                 False =>
                                   ami' :: (findMatch prior ami stri pat strs bords overlap t)
                    False =>
