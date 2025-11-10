@@ -28,8 +28,9 @@ matcher overlap pat chunks t =
       let chunks' # t := go Z chunks Lin t
         in Z :: chunks' # t
     False =>
-      let bords # t := kmpBorders pat t
-        in searcher Z Z pat chunks [] bords overlap t
+      let bords     # t := kmpBorders pat t
+          searcher' # t := searcher Z Z pat chunks Lin bords overlap t
+        in (searcher' <>> []) # t
   where
     go :  Nat
        -> List ByteString
@@ -49,10 +50,10 @@ matcher overlap pat chunks t =
                 -> (stri : Nat)
                 -> (pat : ByteString)
                 -> (strs : List ByteString)
-                -> (final : List Nat)
+                -> (final : SnocList Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
-                -> F1 s (List Nat)
+                -> F1 s (SnocList Nat)
       findMatch _     _    _    _   []               final _     _       t =
         final # t
       findMatch prior pati stri pat strs@(str::rest) final bords overlap t =
@@ -69,14 +70,14 @@ matcher overlap pat chunks t =
                              ami # t := get bords patlen' t
                            in case ami == Z of
                                 True  =>
-                                  let final'' := final' :: final
+                                  let final'' := final :< final'
                                     in assert_total (checkHead prior stri pat strs final'' bords overlap t)
                                 False =>
-                                  let final'' := final' :: final
+                                  let final'' := final :< final'
                                     in assert_total (findMatch prior ami stri pat strs final'' bords overlap t)
                    False =>
                      let final'  := minus (plus prior stri) patlen
-                         final'' := final' :: final 
+                         final'' := final :< final'
                        in assert_total (checkHead prior stri pat strs final'' bords overlap t)
                False =>
                  let strlen := length str
@@ -112,10 +113,10 @@ matcher overlap pat chunks t =
                 -> (stri : Nat)
                 -> (pat : ByteString)
                 -> (strs : List ByteString)
-                -> (final : List Nat)
+                -> (final : SnocList Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
-                -> F1 s (List Nat)
+                -> F1 s (SnocList Nat)
       checkHead _     _    _   []               final _     _       t =
         final # t
       checkHead prior stri pat strs@(str::rest) final bords overlap t =
@@ -143,10 +144,10 @@ matcher overlap pat chunks t =
                -> (patpos : Nat)
                -> (pat : ByteString)
                -> (strs : List ByteString)
-               -> (final : List Nat)
+               -> (final : SnocList Nat)
                -> (bords : MArray s (S (length pat)) Nat)
                -> (overlap : Bool)
-               -> F1 s (List Nat)
+               -> F1 s (SnocList Nat)
       searcher _     _      _   []   final _     _       t =
         final # t
       searcher prior Z      pat strs final bords overlap t =
