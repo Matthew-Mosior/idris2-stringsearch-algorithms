@@ -167,7 +167,7 @@ matcher overlap pat chunks t =
 ||| | ---- | ---------- |
 ||| | "AN" | "ANPANMAN" |
 |||
-||| => [0, 4, 6]
+||| matchKMP "AN" "ANPANMAN" => [0, 3, 6]
 |||
 export
 matchKMP :  (pat : ByteString)
