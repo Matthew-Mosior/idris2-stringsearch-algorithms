@@ -30,9 +30,7 @@ prop_matcher = property1 $
           target          := Prelude.unpack "ANPANMAN"
           patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
           targetbs        := Data.ByteString.pack (map (cast {to=Bits8}) target)
-          matcher     # t := matcher False patbs [targetbs] t
-          matcher'    # t := Data.Array.Core.freeze matcher t
-        in Prelude.Interfaces.toList matcher' # t ) === [0,3,6]
+        in matcher False patbs [targetbs] t) === [0,3,6]
 
 {-
 ||| prop_matchKMP:

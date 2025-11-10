@@ -65,7 +65,7 @@ matcher overlap pat chunks t =
                        Nothing      =>
                          (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
                        Just patlen' =>
-                         let final'  := minus (plus prior (length str)) patlen
+                         let final'  := minus (plus prior stri) patlen
                              ami # t := get bords patlen' t
                            in case ami == Z of
                                 True  =>
@@ -75,7 +75,7 @@ matcher overlap pat chunks t =
                                   let final'' := final' :: final
                                     in assert_total (findMatch prior ami stri pat strs final'' bords overlap t)
                    False =>
-                     let final'  := minus (plus prior (length str)) patlen
+                     let final'  := minus (plus prior stri) patlen
                          final'' := final' :: final 
                        in assert_total (checkHead prior stri pat strs final'' bords overlap t)
                False =>
