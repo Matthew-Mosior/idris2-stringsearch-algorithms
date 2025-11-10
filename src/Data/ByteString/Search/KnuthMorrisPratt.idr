@@ -1,6 +1,8 @@
 ||| Fast Knuth-Morris-Pratt search of ByteStrings
 module Data.ByteString.Search.KnuthMorrisPratt
 
+import Data.ByteString.Search.Internal.Utils
+
 import Data.Array.Core
 import Data.Array.Mutable
 import Data.Bits
@@ -15,7 +17,7 @@ import Data.So
 
 ||| Returns list of match starting positions of a pattern
 ||| (0-based) across the list of `ByteStrings`.
-private
+export
 matcher :  Bool
         -> ByteString
         -> List ByteString
@@ -24,10 +26,10 @@ matcher overlap pat chunks t =
   case null pat of
     True  =>
       let chunks' # t := go Z chunks Lin t
-        in Z :: chunks # t
+        in Z :: chunks' # t
     False =>
       let bords # t := kmpBorders pat t
-        in searcher Z Z pat chunks bords overlap t
+        in searcher Z Z pat chunks [] bords overlap t
   where
     go :  Nat
        -> List ByteString
@@ -47,35 +49,40 @@ matcher overlap pat chunks t =
                 -> (stri : Nat)
                 -> (pat : ByteString)
                 -> (strs : List ByteString)
+                -> (final : List Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
                 -> F1 s (List Nat)
-      findMatch prior pati stri pat strs@(str::rest) bords overlap t =
+      findMatch _     _    _    _   []               final _     _       t =
+        final # t
+      findMatch prior pati stri pat strs@(str::rest) final bords overlap t =
         let patlen := length pat
           in case pati == patlen of
                True  =>
                  case overlap of
                    True  =>
                      case tryNatToFin patlen of
-                       Nothing   =>
+                       Nothing      =>
                          (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
-                       Just ami =>
-                         let strlen := length str
-                             ami'   := minus (plus prior strlen) patlen 
-                           in case (finToNat ami) == Z of
+                       Just patlen' =>
+                         let final'  := minus (plus prior (length str)) patlen
+                             ami # t := get bords patlen' t
+                           in case ami == Z of
                                 True  =>
-                                  ami' :: (checkHead (S stri) pat strs bords overlap t)
+                                  let final'' := final' :: final
+                                    in assert_total (checkHead prior stri pat strs final'' bords overlap t)
                                 False =>
-                                  ami' :: (findMatch prior ami stri pat strs bords overlap t)
+                                  let final'' := final' :: final
+                                    in assert_total (findMatch prior ami stri pat strs final'' bords overlap t)
                    False =>
-                     let strlen := length str
-                         ami'   := minus (plus prior strlen) patlen 
-                       in ami' :: (checkHead (S stri) pat str bords t)
+                     let final'  := minus (plus prior (length str)) patlen
+                         final'' := final' :: final 
+                       in assert_total (checkHead prior stri pat strs final'' bords overlap t)
                False =>
                  let strlen := length str
                    in case stri == strlen of
                         True  =>
-                          assert_total (searcher (plus prior strlen) pati pat rest bords t)
+                          assert_total (searcher (plus prior strlen) pati pat rest final bords overlap t)
                         False =>
                           let pati' := index pati pat
                             in case pati' of
@@ -89,7 +96,7 @@ matcher overlap pat chunks t =
                                           Just stri'' =>
                                             case stri'' == pati'' of
                                               True  =>
-                                                findMatch (S pati) (S stri) pat str t
+                                                assert_total (findMatch prior (S pati) (S stri) pat strs final bords overlap t)
                                               False =>
                                                 case tryNatToFin pati of
                                                   Nothing      =>
@@ -98,20 +105,24 @@ matcher overlap pat chunks t =
                                                     let pati'''' # t := get bords pati''' t
                                                       in case pati'''' == Z of
                                                            True  =>
-                                                             assert_total (checkHead (S stri) pat str bords t)
+                                                             assert_total (checkHead prior (S stri) pat strs final bords overlap t)
                                                            False =>
-                                                             assert_total (findMatch pati'''' stri pat str bords t)
-      checkHead :  (stri : Nat)
+                                                             assert_total (findMatch prior pati'''' stri pat strs final bords overlap t)
+      checkHead :  (prior : Nat)
+                -> (stri : Nat)
                 -> (pat : ByteString)
                 -> (strs : List ByteString)
+                -> (final : List Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
                 -> F1 s (List Nat)
-      checkHead stri pat strs@(str::rest) bords overlap t =
+      checkHead _     _    _   []               final _     _       t =
+        final # t
+      checkHead prior stri pat strs@(str::rest) final bords overlap t =
         let strlen := length str
           in case stri == strlen of
                True  =>
-                 searcher (plus prior strlen) Z pat rest bords overlap t
+                 assert_total (searcher (plus prior strlen) Z pat rest final bords overlap t)
                False =>
                  let stri' := index stri str
                    in case stri' of
@@ -125,19 +136,43 @@ matcher overlap pat chunks t =
                                  Just patzero' =>
                                    case stri'' == patzero' of
                                      True  =>
-                                       findMatch (S Z) (S stri) pat str bords overlap t
+                                       assert_total (findMatch prior (S Z) (S stri) pat strs final bords overlap t)
                                      False =>
-                                       assert_total (checkHead (S stri) pat str bords overlap t)
+                                       assert_total (checkHead prior (S stri) pat strs final bords overlap t)
       searcher :  (prior : Nat)
                -> (patpos : Nat)
                -> (pat : ByteString)
                -> (strs : List ByteString)
+               -> (final : List Nat)
                -> (bords : MArray s (S (length pat)) Nat)
                -> (overlap : Bool)
                -> F1 s (List Nat)
-      searcher _     _      _   []            _     _       t =
-        [] # t
-      searcher _     Z      pat strs@(str::_) bords overlap t =
-        checkHead Z pat strs bords overlap t
-      searcher prior patpos pat strs          bords overlap t =
-        findMatch prior patpos Z pat strs bords overlap t
+      searcher _     _      _   []   final _     _       t =
+        final # t
+      searcher prior Z      pat strs final bords overlap t =
+        assert_total (checkHead prior Z pat strs final bords overlap t)
+      searcher prior patpos pat strs final bords overlap t =
+        assert_total (findMatch prior patpos Z pat strs final bords overlap t)
+
+||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
+|||
+||| This function finds all (0-based) starting indices of the non-empty pattern `ByteString`
+||| pat within the non-empty target `ByteString`, using the efficient KMP border table
+||| computed by `kmpBorders`.
+|||
+||| Example:
+|||
+||| | pat  | target     |
+||| | ---- | ---------- |
+||| | "AN" | "ANPANMAN" |
+|||
+||| => [0, 4, 6]
+|||
+export
+matchKMP :  (pat : ByteString)
+         -> (target : ByteString)
+         -> {0 prfpat : So (not $ null pat)}
+         -> {0 prftarget : So (not $ null target)}
+         -> F1 s (List Nat)
+matchKMP pat target {prfpat} {prftarget} t =
+  matcher False pat [target] t

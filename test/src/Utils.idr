@@ -1,9 +1,10 @@
 module Utils
 
+import Data.ByteString.Search.Internal.Utils
+
 import Hedgehog
 import Data.Array
 import Data.ByteString
-import Data.ByteString.Search.Internal.Utils
 import Data.Fin
 import Data.Linear.Ref1
 import Data.Linear.Token
