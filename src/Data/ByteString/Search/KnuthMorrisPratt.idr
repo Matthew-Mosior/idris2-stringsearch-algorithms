@@ -167,6 +167,17 @@ matcher overlap pat chunks t =
 ||| | ---- | ---------- |
 ||| | "AN" | "ANPANMAN" |
 |||
+||| | Start | Substring      | Match? | Explanation                                      |
+||| | ----- | -------------- | ------ | ------------------------------------------------ |
+||| | 0     | **"AN"**PANMAN | Yes    | Full pattern `"AN"` matches starting at index 0. |
+||| | 1     | A**"NP"**ANMAN | No     | Mismatch after the first character.              |
+||| | 2     | AN**"PA"**NMAN | No     | No match — next candidate after suffix shift.    |
+||| | 3     | ANP**"AN"**MAN | Yes    | Match found at index 3.                          |
+||| | 4     | ANPA**"NM"**AN | No     | Mismatch.                                        |
+||| | 5     | ANPAN**"MA"**N | No     | Mismatch.                                        |
+||| | 6     | ANPANM**"AN"** | Yes    | Final match found at index 6.                    |
+||| 
+|||
 ||| matchKMP "AN" "ANPANMAN" => [0, 3, 6]
 |||
 export
@@ -177,3 +188,34 @@ matchKMP :  (pat : ByteString)
          -> F1 s (List Nat)
 matchKMP pat target {prfpat} {prftarget} t =
   matcher False pat [target] t
+
+||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
+|||
+||| This function finds all (0-based) indices (possibly overlapping)
+||| of the non-empty pattern `ByteString` pat
+||| within the non-empty target `ByteString`, using the efficient KMP border table
+||| computed by `kmpBorders`.
+|||
+||| Example:
+|||
+||| | pat   | target      |
+||| | ----- | ----------- |
+||| | "ABC" | "ABCABCABC" |
+|||
+||| | Start | Substring       | Match? | Explanation                                                      |
+||| | ----- | --------------- | ------ | ---------------------------------------------------------------- |
+||| | 0     | **"ABCABC"**ABC | Yes    | Full pattern matches starting at index 0.                        |
+||| | 1     | A**"BCABCA"**BC | No     | Mismatch starts immediately after first letter.                  |
+||| | 2     | AB**"CABCAA"**C | No     | Shift by suffix table → mismatch on 2nd char.                    |
+||| | 3     | ABC**"ABC"**    | Yes    | Overlapping match starting at index 3 (because `"ABC"` repeats). |
+||| 
+||| indicesKMP "ABCABC" "ABCABCABC" => [0, 3]
+|||
+export
+indicesKMP :  (pat : ByteString)
+           -> (target : ByteString)
+           -> {0 prfpat : So (not $ null pat)}
+           -> {0 prftarget : So (not $ null target)}
+           -> F1 s (List Nat)
+indicesKMP pat target {prfpat} {prftarget} t =
+  matcher True pat [target] t
