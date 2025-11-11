@@ -23,27 +23,10 @@ matcher :  Bool
         -> List ByteString
         -> F1 s (List Nat)
 matcher overlap pat chunks t =
-  case null pat of
-    True  =>
-      let chunks' # t := go Z chunks Lin t
-        in Z :: chunks' # t
-    False =>
-      let bords     # t := kmpBorders pat t
-          searcher' # t := searcher Z Z pat chunks Lin bords overlap t
-        in (searcher' <>> []) # t
+  let bords     # t := kmpBorders pat t
+      searcher' # t := searcher Z Z pat chunks Lin bords overlap t
+    in (searcher' <>> []) # t
   where
-    go :  Nat
-       -> List ByteString
-       -> SnocList Nat
-       -> F1 s (List Nat)
-    go _     []      sl t =
-      (sl <>> []) # t
-    go prior (s::ss) sl t =
-      let l      := length s
-          prior' := plus prior l
-          s'     := [ prior' | i <- [1..l] ]
-          sl'    := sl <>< s'
-        in go prior' ss sl' t
     mutual
       findMatch :  (prior : Nat)
                 -> (pati : Nat)
