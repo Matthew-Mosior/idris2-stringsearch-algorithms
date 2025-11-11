@@ -158,7 +158,7 @@ matcher overlap pat chunks t =
 ||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
 |||
 ||| This function finds all (0-based) starting indices of the non-empty pattern `ByteString`
-||| pat within the non-empty target `ByteString`, using the efficient KMP border table
+||| pat within the non-empty target `ByteString`, using the KMP border table
 ||| computed by `kmpBorders`.
 |||
 ||| Example:
@@ -193,7 +193,7 @@ matchKMP pat target {prfpat} {prftarget} t =
 |||
 ||| This function finds all (0-based) indices (possibly overlapping)
 ||| of the non-empty pattern `ByteString` pat
-||| within the non-empty target `ByteString`, using the efficient KMP border table
+||| within the non-empty target `ByteString`, using the KMP border table
 ||| computed by `kmpBorders`.
 |||
 ||| Example:
