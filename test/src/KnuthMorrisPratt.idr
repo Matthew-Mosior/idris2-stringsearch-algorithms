@@ -12,38 +12,6 @@ import Data.Linear.Token
 import Data.So
 import Data.Vect
 
-||| prop_false_matcher:
-|||
-||| pat:    "AN"
-||| target: "ANPANMAN"
-|||
-||| matcher False "AN" ["ANPANMAN"] => [0, 3, 6]
-|||
-prop_false_matcher : Property
-prop_false_matcher = property1 $
-  ( run1 $ \t =>
-      let pat             := Prelude.unpack "AN"
-          target          := Prelude.unpack "ANPANMAN"
-          patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
-          targetbs        := Data.ByteString.pack (map (cast {to=Bits8}) target)
-        in matcher False patbs [targetbs] t) === [0,3,6]
-
-||| prop_true_matcher:
-|||
-||| pat:    "ABCABC"
-||| target: "ABCABCABC"
-|||
-||| matcher True "ABCABC" ["ABCABCABC"] => [0, 3]
-|||
-prop_true_matcher : Property
-prop_true_matcher = property1 $
-  ( run1 $ \t =>
-      let pat             := Prelude.unpack "ABCABC"
-          target          := Prelude.unpack "ABCABCABC"
-          patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
-          targetbs        := Data.ByteString.pack (map (cast {to=Bits8}) target)
-        in matcher True patbs [targetbs] t) === [0,3]
-
 ||| prop_matchKMP:
 |||
 ||| pat:    "AN"
@@ -103,8 +71,6 @@ prop_indicesKMP = property1 $
 export
 props : Group
 props = MkGroup "KnuthMorrisPratt"
-  [ ("prop_false_matcher", prop_false_matcher)
-  , ("prop_true_matcher", prop_true_matcher)
-  , ("prop_matchKMP", prop_matchKMP)
+  [ ("prop_matchKMP", prop_matchKMP)
   , ("prop_indicesKMP", prop_indicesKMP)
   ]

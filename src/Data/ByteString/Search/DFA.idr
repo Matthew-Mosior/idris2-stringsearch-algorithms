@@ -1,5 +1,5 @@
-||| Fast Knuth-Morris-Pratt search of ByteStrings
-module Data.ByteString.Search.KnuthMorrisPratt
+||| Fast deterministic finite automaton (DFA) search of ByteStrings
+module Data.ByteString.Search.DFA
 
 import Data.ByteString.Search.Internal.Utils
 
@@ -17,7 +17,7 @@ import Data.So
 
 ||| Returns list of match starting positions of a pattern
 ||| (0-based) across the list of `ByteStrings`.
-private
+export
 matcher :  Bool
         -> ByteString
         -> List ByteString

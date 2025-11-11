@@ -8,5 +8,6 @@ depends   = base
           , array
           , bytestring
           , ref1
-modules   = Data.ByteString.Search.Internal.Utils
+modules   = Data.ByteString.Search.DFA
+          , Data.ByteString.Search.Internal.Utils
           , Data.ByteString.Search.KnuthMorrisPratt
