@@ -81,7 +81,7 @@ prop_matchKMP = property1 $
 ||| index    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 ||| matchKMP | Y | N | N | Y | N | N | N | N | N
 |||
-||| matchKMP "AN" "ANPANMAN" => [0, 3]
+||| indicesKMP "ABCABC" "ABCABCABC" => [0, 3]
 |||
 prop_indicesKMP : Property
 prop_indicesKMP = property1 $
