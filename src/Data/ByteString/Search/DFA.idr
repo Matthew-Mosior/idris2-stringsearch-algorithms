@@ -23,7 +23,7 @@ matcher :  Bool
         -> ByteString
         -> F1 s (List Nat)
 matcher overlap pat target t =
-  case length pat == 1 of
+  case length pat == (S Z) of
     True  =>
       let pat' := index 0 pat
         in case pat' of
@@ -38,23 +38,18 @@ matcher overlap pat target t =
                         [headelem] # t
     False =>
       let auto   # t := automaton pat t
-          match' # t := match Z Z pat target Lin auto t
+          match' # t := match Z Z pat target Lin auto overlap t
         in (match' <>> []) # t
   where
-      searcher :  (prior : Nat)
-               -> (patpos : Nat)
-               -> (pat : ByteString)
-               -> (strs : List ByteString)
-               -> (final : SnocList Nat)
-               -> (bords : MArray s (S (length pat)) Nat)
-               -> (overlap : Bool)
-               -> F1 s (SnocList Nat)
-      searcher _     _      _   []   final _     _       t =
-        final # t
-      searcher prior Z      pat strs final bords overlap t =
-        assert_total (checkHead prior Z pat strs final bords overlap t)
-      searcher prior patpos pat strs final bords overlap t =
-        assert_total (findMatch prior patpos Z pat strs final bords overlap t)
+    match :  (state : Nat)
+          -> (idx : Nat)
+          -> (pat : ByteString)
+          -> (target : ByteString)
+          -> (final : SnocList Nat)
+          -> (auto : MArray s (mult (plus (length pat) 1) 256) Nat)
+          -> (overlap : Bool)
+          -> F1 s (List Nat)
+    match 
 
 ||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||
