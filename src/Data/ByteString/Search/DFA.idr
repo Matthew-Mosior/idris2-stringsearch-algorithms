@@ -17,112 +17,30 @@ import Data.So
 
 ||| Returns list of match starting positions of a pattern
 ||| (0-based) across the list of `ByteStrings`.
-export
+private
 matcher :  Bool
         -> ByteString
-        -> List ByteString
+        -> ByteString
         -> F1 s (List Nat)
-matcher overlap pat chunks t =
-  let bords     # t := kmpBorders pat t
-      searcher' # t := searcher Z Z pat chunks Lin bords overlap t
-    in (searcher' <>> []) # t
+matcher overlap pat target t =
+  case length pat == 1 of
+    True  =>
+      let pat' := index 0 pat
+        in case pat' of
+             Nothing    =>
+               (assert_total $ idris_crash "Data.ByteString.Search.DFA.matcher: can't index into ByteString") # t
+             Just pat'' =>
+               let headelem := elemIndex pat'' pat
+                 in case headelem of
+                      Nothing        =>
+                        (assert_total $ idris_crash "Data.ByteString.Search.DFA.matcher: byte does not appear in ByteString") # t
+                      Just headelem' =>
+                        [headelem] # t
+    False =>
+      let auto   # t := automaton pat t
+          match' # t := match Z Z pat target Lin auto t
+        in (match' <>> []) # t
   where
-    mutual
-      findMatch :  (prior : Nat)
-                -> (pati : Nat)
-                -> (stri : Nat)
-                -> (pat : ByteString)
-                -> (strs : List ByteString)
-                -> (final : SnocList Nat)
-                -> (bords : MArray s (S (length pat)) Nat)
-                -> (overlap : Bool)
-                -> F1 s (SnocList Nat)
-      findMatch _     _    _    _   []               final _     _       t =
-        final # t
-      findMatch prior pati stri pat strs@(str::rest) final bords overlap t =
-        let patlen := length pat
-          in case pati == patlen of
-               True  =>
-                 case overlap of
-                   True  =>
-                     case tryNatToFin patlen of
-                       Nothing      =>
-                         (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
-                       Just patlen' =>
-                         let final'  := minus (plus prior stri) patlen
-                             ami # t := get bords patlen' t
-                           in case ami == Z of
-                                True  =>
-                                  let final'' := final :< final'
-                                    in assert_total (checkHead prior stri pat strs final'' bords overlap t)
-                                False =>
-                                  let final'' := final :< final'
-                                    in assert_total (findMatch prior ami stri pat strs final'' bords overlap t)
-                   False =>
-                     let final'  := minus (plus prior stri) patlen
-                         final'' := final :< final'
-                       in assert_total (checkHead prior stri pat strs final'' bords overlap t)
-               False =>
-                 let strlen := length str
-                   in case stri == strlen of
-                        True  =>
-                          assert_total (searcher (plus prior strlen) pati pat rest final bords overlap t)
-                        False =>
-                          let pati' := index pati pat
-                            in case pati' of
-                                 Nothing     =>
-                                   (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
-                                 Just pati'' =>
-                                   let stri' := index stri str
-                                     in case stri' of
-                                          Nothing     =>
-                                            (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
-                                          Just stri'' =>
-                                            case stri'' == pati'' of
-                                              True  =>
-                                                assert_total (findMatch prior (S pati) (S stri) pat strs final bords overlap t)
-                                              False =>
-                                                case tryNatToFin pati of
-                                                  Nothing      =>
-                                                    (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't convert Nat to Fin") # t        
-                                                  Just pati''' =>
-                                                    let pati'''' # t := get bords pati''' t
-                                                      in case pati'''' == Z of
-                                                           True  =>
-                                                             assert_total (checkHead prior (S stri) pat strs final bords overlap t)
-                                                           False =>
-                                                             assert_total (findMatch prior pati'''' stri pat strs final bords overlap t)
-      checkHead :  (prior : Nat)
-                -> (stri : Nat)
-                -> (pat : ByteString)
-                -> (strs : List ByteString)
-                -> (final : SnocList Nat)
-                -> (bords : MArray s (S (length pat)) Nat)
-                -> (overlap : Bool)
-                -> F1 s (SnocList Nat)
-      checkHead _     _    _   []               final _     _       t =
-        final # t
-      checkHead prior stri pat strs@(str::rest) final bords overlap t =
-        let strlen := length str
-          in case stri == strlen of
-               True  =>
-                 assert_total (searcher (plus prior strlen) Z pat rest final bords overlap t)
-               False =>
-                 let stri' := index stri str
-                   in case stri' of
-                        Nothing     =>
-                          (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.checkHead: can't index into ByteString") # t
-                        Just stri'' =>
-                          let patzero := index Z pat
-                            in case patzero of
-                                 Nothing       =>
-                                   (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.checkHead: can't index into ByteString") # t
-                                 Just patzero' =>
-                                   case stri'' == patzero' of
-                                     True  =>
-                                       assert_total (findMatch prior (S Z) (S stri) pat strs final bords overlap t)
-                                     False =>
-                                       assert_total (checkHead prior (S stri) pat strs final bords overlap t)
       searcher :  (prior : Nat)
                -> (patpos : Nat)
                -> (pat : ByteString)
@@ -138,11 +56,11 @@ matcher overlap pat chunks t =
       searcher prior patpos pat strs final bords overlap t =
         assert_total (findMatch prior patpos Z pat strs final bords overlap t)
 
-||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
+||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||
 ||| This function finds all (0-based) starting indices of the non-empty pattern `ByteString`
-||| pat within the non-empty target `ByteString`, using the KMP border table
-||| computed by `kmpBorders`.
+||| pat within the non-empty target `ByteString`, using the deterministic-finite-automaton
+||| (DFA) computed by `automaton`.
 |||
 ||| Example:
 |||
@@ -161,23 +79,23 @@ matcher overlap pat chunks t =
 ||| | 6     | ANPANM**"AN"** | Yes    | Final match found at index 6.                    |
 ||| 
 |||
-||| matchKMP "AN" "ANPANMAN" => [0, 3, 6]
+||| matchDFA "AN" "ANPANMAN" => [0, 3, 6]
 |||
 export
-matchKMP :  (pat : ByteString)
+matchDFA :  (pat : ByteString)
          -> (target : ByteString)
          -> {0 prfpat : So (not $ null pat)}
          -> {0 prftarget : So (not $ null target)}
          -> F1 s (List Nat)
-matchKMP pat target {prfpat} {prftarget} t =
+matchDFA pat target {prfpat} {prftarget} t =
   matcher False pat [target] t
 
-||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
+||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||
 ||| This function finds all (0-based) indices (possibly overlapping)
 ||| of the non-empty pattern `ByteString` pat
-||| within the non-empty target `ByteString`, using the KMP border table
-||| computed by `kmpBorders`.
+||| within the non-empty target `ByteString`, using the deterministic-finite-automaton
+||| (DFA) computed by `automaton`.
 |||
 ||| Example:
 |||
@@ -192,13 +110,13 @@ matchKMP pat target {prfpat} {prftarget} t =
 ||| | 2     | AB**"CABCAA"**C | No     | Shift by suffix table → mismatch on 2nd char.                    |
 ||| | 3     | ABC**"ABC"**    | Yes    | Overlapping match starting at index 3 (because `"ABC"` repeats). |
 ||| 
-||| indicesKMP "ABCABC" "ABCABCABC" => [0, 3]
+||| indicesDFA "ABCABC" "ABCABCABC" => [0, 3]
 |||
 export
-indicesKMP :  (pat : ByteString)
+indicesDFA :  (pat : ByteString)
            -> (target : ByteString)
            -> {0 prfpat : So (not $ null pat)}
            -> {0 prftarget : So (not $ null target)}
            -> F1 s (List Nat)
-indicesKMP pat target {prfpat} {prftarget} t =
+indicesDFA pat target {prfpat} {prftarget} t =
   matcher True pat [target] t
