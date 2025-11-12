@@ -37,8 +37,8 @@ matcher overlap pat target t =
                       Just headelem' =>
                         (headelem' :: []) # t
     False =>
-      let auto   # t := automaton pat t
-          match' # t := match Z Z pat target Lin auto overlap t
+      let dfa    # t := automaton pat t
+          match' # t := match Z Z pat target Lin dfa overlap t
         in (match' <>> []) # t
   where
     match :  (state : Nat)
@@ -46,10 +46,10 @@ matcher overlap pat target t =
           -> (pat : ByteString)
           -> (target : ByteString)
           -> (final : SnocList Nat)
-          -> (auto : MArray s (mult (plus (length pat) 1) 256) Nat)
+          -> (dfa : MArray s (mult (plus (length pat) 1) 256) Nat)
           -> (overlap : Bool)
           -> F1 s (SnocList Nat)
-    match Z idx pat target final auto overlap t =
+    match Z idx pat target final dfa overlap t =
       case idx == length target of
         True  =>
           final # t
@@ -66,10 +66,10 @@ matcher overlap pat target t =
                           Just patzero' =>
                             case idx'' == patzero' of
                               True  =>
-                                assert_total (match (S 0) (S idx) pat target final auto overlap t)
+                                assert_total (match (S 0) (S idx) pat target final dfa overlap t)
                               False =>
-                                assert_total (match Z (S idx) pat target final auto overlap t)
-    match state idx pat target final auto overlap t =
+                                assert_total (match Z (S idx) pat target final dfa overlap t)
+    match state idx pat target final dfa overlap t =
       case idx == length target of
         True  =>
           final # t
@@ -79,12 +79,12 @@ matcher overlap pat target t =
                  Nothing    =>
                    (assert_total $ idris_crash "Data.ByteString.Search.DFA.matcher:match: can't index into ByteString") # t
                  Just idx'' =>
-                   let nstateidx := plus (mult state 256) idx''
+                   let nstateidx := plus (mult state 256) (cast {to=Nat} idx'')
                      in case tryNatToFin nstateidx of
                           Nothing         =>
                             (assert_total $ idris_crash "Data.ByteString.Search.DFA.matcher:match: can't convert Nat to Fin") # t
                           Just nstateidx' =>
-                            let nstate # t := get auto nstateidx t
+                            let nstate # t := get dfa nstateidx' t
                                 nxtidx     := S idx
                               in case nstate == length pat of
                                    True  =>
@@ -92,12 +92,12 @@ matcher overlap pat target t =
                                          final'' := final :< final'
                                        in case overlap of
                                             True  =>
-                                              let ams := length pat
-                                                in assert_total (match ams nxtidx pat target final'' auto overlap t)
+                                              let ams := S (minus nxtidx (length pat))
+                                                in assert_total (match Z ams pat target final'' dfa overlap t)
                                             False =>
-                                              assert_total (match Z nxtidx pat target final'' auto overlap t)
+                                              assert_total (match Z nxtidx pat target final'' dfa overlap t)
                                    False =>
-                                     assert_total (match nstate nxtidx pat target final auto overlap t)
+                                     assert_total (match nstate nxtidx pat target final dfa overlap t)
 
 ||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||

@@ -1,5 +1,6 @@
 module Main
 
+import DFA
 import KnuthMorrisPratt
 import Utils
 
@@ -10,5 +11,6 @@ import Hedgehog
 main : IO ()
 main = test
   [ Utils.props
+  , DFA.props
   , KnuthMorrisPratt.props
   ]

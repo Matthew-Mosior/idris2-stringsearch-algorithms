@@ -1,6 +1,6 @@
-module KnuthMorrisPratt
+module DFA
 
-import Data.ByteString.Search.KnuthMorrisPratt
+import Data.ByteString.Search.DFA
 
 import Hedgehog
 import Data.Array
@@ -11,7 +11,7 @@ import Data.Linear.Token
 import Data.So
 import Data.Vect
 
-||| prop_matchKMP:
+||| prop_matchDFA:
 |||
 ||| pat:    "AN"
 ||| target: "ANPANMAN"
@@ -20,10 +20,10 @@ import Data.Vect
 ||| index    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 ||| matchKMP | Y | N | N | Y | N | N | Y | N
 |||
-||| matchKMP "AN" "ANPANMAN" => [0, 3, 6]
+||| matchDFA "AN" "ANPANMAN" => [0, 3, 6]
 |||
-prop_matchKMP : Property
-prop_matchKMP = property1 $
+prop_matchDFA : Property
+prop_matchDFA = property1 $
   let pat   := Prelude.unpack "AN"
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
@@ -37,9 +37,9 @@ prop_matchKMP = property1 $
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
                     ( run1 $ \t =>
-                        matchKMP patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3,6]
+                        matchDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3,6]
 
-||| prop_indicesKMP:
+||| prop_indicesDFA:
 |||
 ||| pat:    "ABCABC"
 ||| target: "ABCABCABC"
@@ -48,10 +48,10 @@ prop_matchKMP = property1 $
 ||| index    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 ||| matchKMP | Y | N | N | Y | N | N | N | N | N
 |||
-||| indicesKMP "ABCABC" "ABCABCABC" => [0, 3]
+||| indicesDFA "ABCABC" "ABCABCABC" => [0, 3]
 |||
-prop_indicesKMP : Property
-prop_indicesKMP = property1 $
+prop_indicesDFA : Property
+prop_indicesDFA = property1 $
   let pat   := Prelude.unpack "ABCABC"
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
@@ -65,11 +65,11 @@ prop_indicesKMP = property1 $
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
                     ( run1 $ \t =>
-                        indicesKMP patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3]
+                        indicesDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3]
 
 export
 props : Group
-props = MkGroup "KnuthMorrisPratt"
-  [ ("prop_matchKMP", prop_matchKMP)
-  , ("prop_indicesKMP", prop_indicesKMP)
+props = MkGroup "DFA"
+  [ ("prop_matchDFA", prop_matchDFA)
+  , ("prop_indicesDFA", prop_indicesDFA)
   ]
