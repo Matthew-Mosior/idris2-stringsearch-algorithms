@@ -16,9 +16,9 @@ import Data.Vect
 ||| pat:    "AN"
 ||| target: "ANPANMAN"
 |||
-||| target   | A | N | P | A | N | M | A | N
-||| index    | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
-||| matchKMP | Y | N | N | Y | N | N | Y | N
+||| target | A | N | P | A | N | M | A | N
+||| index  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+||| match  | Y | N | N | Y | N | N | Y | N
 |||
 ||| matchKMP "AN" "ANPANMAN" => [0, 3, 6]
 |||
@@ -44,9 +44,9 @@ prop_matchKMP = property1 $
 ||| pat:    "ABCABC"
 ||| target: "ABCABCABC"
 |||
-||| target     | A | B | C | A | B | C | A | B | C
-||| index      | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
-||| indicesKMP | Y | N | N | Y | N | N | N | N | N
+||| target | A | B | C | A | B | C | A | B | C
+||| index  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+||| match  | Y | N | N | Y | N | N | N | N | N
 |||
 ||| indicesKMP "ABCABC" "ABCABCABC" => [0, 3]
 |||

@@ -15,8 +15,8 @@ import Data.So
 
 %default total
 
-||| Returns list of match starting positions of a pattern
-||| (0-based) across the list of `ByteStrings`.
+||| Returns a list of starting positions of a pattern `ByteString`
+||| (0-based) across a target `ByteString`.
 private
 matcher :  Bool
         -> ByteString
