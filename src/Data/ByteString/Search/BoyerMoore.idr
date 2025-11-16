@@ -57,10 +57,10 @@ matcher overlap pat target t =
                -> F1 s (SnocList Int)
       checkEnd stri pat target final occurrencesarr suffixshiftarr overlap t =
         let patend := minus (length pat) (S 0)
-            strend := minus (length target) (S 0) 
+            strend := minus (length target) (S 0)
           in case (cast {to=Int} strend) < stri of
                True  =>
-                 Lin # t
+                 final # t
                False =>       
                  let target' := index (cast {to=Nat} stri) target
                    in case target' of
