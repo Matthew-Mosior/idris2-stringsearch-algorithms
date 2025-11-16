@@ -67,7 +67,7 @@ matcher overlap pat target t =
                         Nothing       =>
                           (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher.checkEnd: can't index into ByteString") # t
                         Just target'' =>
-                          let pat'   := index patend pat
+                          let pat' := index patend pat
                             in case pat' of
                                  Nothing    =>
                                    (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher.checkEnd: can't index into ByteString") # t
@@ -152,12 +152,11 @@ matcher overlap pat target t =
                                     Just pati' =>
                                       let occur # t := get occurrencesarr diffpati'' t
                                           suff  # t := get suffixshiftarr pati' t
-                                          diff'     := diff + (max (pati + occur) (cast {to=Int} suff))
+                                          diff'     := diff + (max (pati + occur) suff)
                                           maxdiff   := minus (length target) (length pat)
                                         in case (cast {to=Int} maxdiff) < diff' of
                                              True  =>
-                                               let final' := final :< diff
-                                                 in final' # t
+                                               final # t
                                              False =>
                                                assert_total (checkEnd (diff' + (cast {to=Int} (minus (length pat) (S 0)))) pat target final occurrencesarr suffixshiftarr overlap t)
       afterMatch :  (diff : Int)
@@ -197,7 +196,7 @@ matcher overlap pat target t =
                                                    maxdiff := minus (length target) (length pat)
                                                  in case (cast {to=Int} maxdiff) < diff' of
                                                       True  =>
-                                                        final' # t
+                                                        final # t
                                                       False =>
                                                         assert_total (afterMatch diff' (cast {to=Int} (minus (length pat) (S 0))) pat target final' occurrencesarr suffixshiftarr overlap t)
                                              False =>
@@ -212,7 +211,7 @@ matcher overlap pat target t =
                                                maxdiff := minus (length target) (length pat)
                                              in case (cast {to=Int} maxdiff) < diff' of
                                                   True  =>
-                                                    final' # t
+                                                    final # t
                                                   False =>
                                                     assert_total (afterMatch diff' (cast {to=Int} (minus (length pat) (S 0))) pat target final' occurrencesarr suffixshiftarr overlap t)
                                          False =>
@@ -244,7 +243,7 @@ matcher overlap pat target t =
                                               maxdiff       := minus (length target) (length pat)
                                             in case (cast {to=Int} maxdiff) < diff' of
                                                  True  =>
-                                                   final' # t
+                                                   final # t
                                                  False =>
                                                    assert_total (checkEnd (diff + (cast {to=Int} (minus (length pat) (S 0)))) pat target final occurrencesarr suffixshiftarr overlap t)
                         
