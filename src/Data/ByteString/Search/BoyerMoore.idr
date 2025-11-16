@@ -21,7 +21,7 @@ private
 matcher :  Bool
         -> ByteString
         -> ByteString
-        -> F1 s (List Nat)
+        -> F1 s (List Int)
 matcher overlap pat target t =
   case length pat == S Z of
     True  =>
@@ -35,7 +35,7 @@ matcher overlap pat target t =
                       Nothing        =>
                         (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher: byte does not appear in ByteString") # t
                       Just headelem' =>
-                        (headelem' :: []) # t
+                        ((cast {to=Int} headelem') :: []) # t
     False =>
       case decSo $ (not $ null pat) of
         No  _      =>
@@ -50,11 +50,11 @@ matcher overlap pat target t =
       checkEnd :  (stri : Int)
                -> (pat : ByteString)
                -> (target : ByteString)
-               -> (final : SnocList Nat)
+               -> (final : SnocList Int)
                -> (occurrencesarr : MArray s 256 Int)
-               -> (suffixshiftsarr : MArray s (length pat) Nat)
+               -> (suffixshiftsarr : MArray s (length pat) Int)
                -> (overlap : Bool)
-               -> F1 s (SnocList Nat)
+               -> F1 s (SnocList Int)
       checkEnd stri pat target final occurrencesarr suffixshiftarr overlap t =
         let patend := minus (length pat) (S 0)
             strend := minus (length target) (S 0) 
@@ -87,11 +87,11 @@ matcher overlap pat target t =
                 -> (pati : Int)
                 -> (pat : ByteString)
                 -> (target : ByteString)
-                -> (final : SnocList Nat)
+                -> (final : SnocList Int)
                 -> (occurrencesarr : MArray s 256 Int)
-                -> (suffixshiftsarr : MArray s (length pat) Nat)
+                -> (suffixshiftsarr : MArray s (length pat) Int)
                 -> (overlap : Bool)
-                -> F1 s (SnocList Nat)
+                -> F1 s (SnocList Int)
       findMatch diff pati pat target final occurrencesarr suffixshiftarr overlap t =
         let diffpati := index (cast {to=Nat} (diff + pati)) target
           in case diffpati of
@@ -107,7 +107,7 @@ matcher overlap pat target t =
                             True  =>
                               case pati == 0 of
                                 True  =>
-                                  let final' := final :< (cast {to=Nat} diff)
+                                  let final' := final :< diff
                                     in case overlap of
                                          True  =>
                                            case tryNatToFin Z of
@@ -115,13 +115,13 @@ matcher overlap pat target t =
                                                (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher.findMatch: can't convert Nat to Fin") # t
                                              Just zero =>
                                                let skip # t := get suffixshiftarr zero t
-                                                   diff'    := diff + (cast {to=Int} skip)
+                                                   diff'    := diff + skip
                                                    maxdiff  := minus (length target) (length pat)
                                                  in case (cast {to=Int} maxdiff) < diff' of
                                                       True  =>
                                                         final' # t
                                                       False =>
-                                                        case skip == (length pat) of
+                                                        case skip == (cast {to=Int} (length pat)) of
                                                           True  =>
                                                             assert_total (checkEnd (diff' + (cast {to=Int} (minus (length pat) (S 0)))) pat target final' occurrencesarr suffixshiftarr overlap t)
                                                           False =>
@@ -156,7 +156,7 @@ matcher overlap pat target t =
                                           maxdiff   := minus (length target) (length pat)
                                         in case (cast {to=Int} maxdiff) < diff' of
                                              True  =>
-                                               let final' := final :< (cast {to=Nat} diff)
+                                               let final' := final :< diff
                                                  in final' # t
                                              False =>
                                                assert_total (checkEnd (diff' + (cast {to=Int} (minus (length pat) (S 0)))) pat target final occurrencesarr suffixshiftarr overlap t)
@@ -164,11 +164,11 @@ matcher overlap pat target t =
                  -> (pati : Int)
                  -> (pat : ByteString)
                  -> (target : ByteString)
-                 -> (final : SnocList Nat)
+                 -> (final : SnocList Int)
                  -> (occurrencesarr : MArray s 256 Int)
-                 -> (suffixshiftsarr : MArray s (length pat) Nat)
+                 -> (suffixshiftsarr : MArray s (length pat) Int)
                  -> (overlap : Bool)
-                 -> F1 s (SnocList Nat)
+                 -> F1 s (SnocList Int)
       afterMatch diff pati pat target final occurrencesarr suffixshiftarr overlap t =
         let diffpati := index (cast {to=Nat} (diff + pati)) target
           in case diffpati of
@@ -189,11 +189,11 @@ matcher overlap pat target t =
                                       (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher.afterMatch: can't convert Nat to Fin") # t
                                     Just zero =>
                                       let skip # t := get suffixshiftarr zero t
-                                          kept     := minus (length pat) skip
-                                        in case pati == (cast {to=Int} kept) of
+                                          kept     := (cast {to=Int} (length pat)) - skip
+                                        in case pati == kept of
                                              True  =>
-                                               let final'  := final :< (cast {to=Nat} diff)
-                                                   diff'   := diff + (cast {to=Int} skip)
+                                               let final'  := final :< diff
+                                                   diff'   := diff + skip
                                                    maxdiff := minus (length target) (length pat)
                                                  in case (cast {to=Int} maxdiff) < diff' of
                                                       True  =>
@@ -203,10 +203,10 @@ matcher overlap pat target t =
                                              False =>
                                                assert_total (afterMatch diff (pati - 1)  pat target final occurrencesarr suffixshiftarr overlap t)
                                 False =>
-                                  let kept := the Int 0
-                                    in case pati == kept of
+                                  let kept := minus (length pat) (length pat)
+                                    in case pati == (cast {to=Int} kept) of
                                          True  =>
-                                           let final'  := final :< (cast {to=Nat} diff)
+                                           let final'  := final :< diff
                                                skip    := length pat
                                                diff'   := diff + (cast {to=Int} skip)
                                                maxdiff := minus (length target) (length pat)
@@ -236,11 +236,11 @@ matcher overlap pat target t =
                                         Nothing     =>
                                           (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher.afterMatch: can't convert Nat to Fin") # t
                                         Just pati'' =>
-                                          let final'        := final :< (cast {to=Nat} diff)
+                                          let final'        := final :< diff
                                               occur     # t := get occurrencesarr diffpati'' t
                                               goodshift # t := get suffixshiftarr pati'' t
                                               badshift      := pati + occur
-                                              diff'         := diff + (max badshift (cast {to=Int} goodshift))
+                                              diff'         := diff + (max badshift goodshift)
                                               maxdiff       := minus (length target) (length pat)
                                             in case (cast {to=Int} maxdiff) < diff' of
                                                  True  =>
@@ -277,7 +277,7 @@ matchBM :  (pat : ByteString)
         -> (target : ByteString)
         -> {0 prfpat : So (not $ null pat)}
         -> {0 prftarget : So (not $ null target)}
-        -> F1 s (List Nat)
+        -> F1 s (List Int)
 matchBM pat target {prfpat} {prftarget} t =
   matcher False pat target t
 
@@ -307,6 +307,6 @@ indicesBM :  (pat : ByteString)
           -> (target : ByteString)
           -> {0 prfpat : So (not $ null pat)}
           -> {0 prftarget : So (not $ null target)}
-          -> F1 s (List Nat)
+          -> F1 s (List Int)
 indicesBM pat target {prfpat} {prftarget} t =
   matcher True pat target t

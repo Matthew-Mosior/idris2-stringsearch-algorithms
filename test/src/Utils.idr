@@ -132,19 +132,19 @@ prop_suffixLengths = property1 $
            ( run1 $ \t =>
                let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
                    suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
-                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,1,0,0,1,0,0,8]
+                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,1,0,0,2,0,0,8]
 
 ||| prop_suffixShifts: "ANPANMAN"
 |||
-|||| | idx | suff[idx] | target = 7 - suff[idx] | value = 7 - idx | array after write | What's changing            |
-|||| | --- | --------- | ---------------------- | --------------- | ----------------- | -------------------------- |
-|||| | 0   | 1         | 6                      | 7               | [8,8,8,8,8,8,7,8] | arr[6] updated             |
-|||| | 1   | 1         | 6                      | 6               | [8,8,8,8,8,8,6,8] | arr[6] overwritten         |
-|||| | 2   | 1         | 6                      | 5               | [8,8,8,8,8,8,5,8] | arr[6] overwritten         |
-|||| | 3   | 1         | 6                      | 4               | [8,8,8,8,8,8,4,8] | arr[6] overwritten         |
-|||| | 4   | 1         | 6                      | 3               | [8,8,8,8,8,8,3,8] | arr[6] overwritten         |
-|||| | 5   | 1         | 6                      | 2               | [8,8,8,8,8,8,2,8] | arr[6] overwritten         |
-|||| | 6   | 3         | 4                      | 1               | [8,8,8,8,8,8,3,1] | arr[4] updated, arr[7] = 1 |
+||| | idx | suff[idx] | target = patEnd - suff[idx] | value = patEnd - idx | ar after write    |
+||| | --- | --------- | --------------------------- | -------------------: | ----------------- |
+||| | 0   | 0         | 7 - 0 = 7                   |            7 - 0 = 7 | [8,8,8,8,8,8,8,7] |
+||| | 1   | 1         | 7 - 1 = 6                   |            7 - 1 = 6 | [8,8,8,8,8,8,6,7] |
+||| | 2   | 0         | 7                           |                    5 | [8,8,8,8,8,8,6,5] |
+||| | 3   | 0         | 7                           |                    4 | [8,8,8,8,8,8,6,4] |
+||| | 4   | 2         | 7 - 2 = 5                   |            7 - 4 = 3 | [8,8,8,8,8,3,6,4] |
+||| | 5   | 0         | 7                           |                    2 | [8,8,8,8,8,3,6,2] |
+||| | 6   | 0         | 7                           |                    1 | [8,8,8,8,8,3,6,1] |
 |||
 prop_suffixShifts : Property
 prop_suffixShifts = property1 $
@@ -157,7 +157,7 @@ prop_suffixShifts = property1 $
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
                    suffixshifts' # t := Data.Array.Core.freeze suffixshifts t
-                 in Prelude.Interfaces.toList suffixshifts' # t ) === [8,8,8,8,8,8,3,1]
+                 in Prelude.Interfaces.toList suffixshifts' # t ) === [8,8,8,8,8,3,6,1]
 
 export
 props : Group
