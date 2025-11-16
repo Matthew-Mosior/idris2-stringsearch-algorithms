@@ -126,7 +126,7 @@ matcher overlap pat target t =
                                                             assert_total (checkEnd (diff' + (cast {to=Int} (minus (length pat) (S 0)))) pat target final' occurrencesarr suffixshiftarr overlap t)
                                                           False =>
                                                             assert_total (afterMatch diff' (cast {to=Int} (minus (length pat) (S 0))) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                         False =>                                           
+                                         False =>
                                            let skip    := length pat
                                                diff'   := diff + (cast {to=Int} skip)
                                                maxdiff := minus (length target) (length pat)
