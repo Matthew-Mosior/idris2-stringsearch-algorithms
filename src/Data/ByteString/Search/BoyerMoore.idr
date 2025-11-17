@@ -200,7 +200,7 @@ matcher overlap pat target t =
                                                       False =>
                                                         assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
                                              False =>
-                                               assert_total (afterMatch diff (pati - 1)  pat target final occurrencesarr suffixshiftarr overlap t)
+                                               assert_total (afterMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
                                 False =>
                                   let kept := minus (length pat) (length pat)
                                     in case pati == (cast {to=Int} kept) of
@@ -235,8 +235,7 @@ matcher overlap pat target t =
                                         Nothing     =>
                                           (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.matcher.afterMatch: can't convert Nat to Fin") # t
                                         Just pati'' =>
-                                          let final'        := final :< diff
-                                              occur     # t := get occurrencesarr diffpati'' t
+                                          let occur     # t := get occurrencesarr diffpati'' t
                                               goodshift # t := get suffixshiftarr pati'' t
                                               badshift      := pati + occur
                                               diff'         := diff + (max badshift goodshift)

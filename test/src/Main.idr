@@ -11,7 +11,8 @@ import Hedgehog
 
 main : IO ()
 main = test
-  [ Utils.props
+  [ Utils.props_ANPANMAN
+  , Utils.props_ABCABC
   , BoyerMoore.props
   , DFA.props
   , KnuthMorrisPratt.props
