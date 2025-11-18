@@ -196,16 +196,16 @@ prop_occurrences' = property1 $
 |||
 ||| Raw suffix-lengths array used to compute the good suffix shift table
 |||
-||| | i | pat[i] | matches pattern end? | diff | nextI | prevI | ar[i] |
-||| | - | ------ | -------------------- | ---- | ----- | ----- | ----- |
-||| | 0 | A      | No                   | -    | -     | -     | 0     |
-||| | 1 | N      | Yes                  | 6    | 0     | 0     | 1     |
-||| | 2 | P      | No                   | -    | -     | -     | 0     |
-||| | 3 | A      | No                   | -    | -     | -     | 0     |
-||| | 4 | N      | Yes                  | 3    | 3     | 3     | 1     |
-||| | 5 | M      | No                   | -    | -     | -     | 0     |
-||| | 6 | A      | No                   | -    | -     | -     | 0     |
-||| | 7 | N      | -                    | -    | -     | -     | 8     |
+||| | i | pat[i] | matches pattern end? | diff = patEnd - i | nextI = i-1 | prevI (dec diff nextI) | ar[i] |
+||| | - | ------ | -------------------- | ----------------- | ----------- | ---------------------- | ----- |
+||| | 0 |    A   |          No          |         -         |      -      |            -           |   0   |
+||| | 1 |    N   |          Yes         |         6         |      0      |           -1           |   2   |
+||| | 2 |    P   |          No          |         -         |      -      |            -           |   0   |
+||| | 3 |    A   |          No          |         -         |      -      |            -           |   0   |
+||| | 4 |    N   |          Yes         |         3         |      3      |            2           |   2   |
+||| | 5 |    M   |          No          |         -         |      -      |            -           |   0   |
+||| | 6 |    A   |          No          |         -         |      -      |            -           |   0   |
+||| | 7 |    N   |       - (last)       |         -         |      -      |            -           |   8   |
 |||
 prop_suffixLengths : Property
 prop_suffixLengths = property1 $
@@ -218,7 +218,7 @@ prop_suffixLengths = property1 $
            ( run1 $ \t =>
                let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
                    suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
-                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,1,0,0,2,0,0,8]
+                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,2,0,0,2,0,0,8]
 
 ||| prop_suffixLengths': "ABCABC"
 |||
@@ -226,12 +226,12 @@ prop_suffixLengths = property1 $
 |||
 ||| | i | pat[i] | matches pattern end? (pat[i] == pe) | diff = patEnd - i | nextI = i-1 | prevI (dec diff nextI) | ar[i] |
 ||| | - | ------ | ----------------------------------- | ----------------- | ----------- | ---------------------- | ----- |
-||| | 0 | A      | No                                  | -                 | -           | -                      | 0     |
-||| | 1 | B      | No                                  | -                 | -           | -                      | 0     |
-||| | 2 | C      | Yes                                 | 3                 | 1           | 0                      | 2     |
-||| | 3 | A      | No                                  | -                 | -           | -                      | 0     |
-||| | 4 | B      | No                                  | -                 | -           | -                      | 0     |
-||| | 5 | C      | -                                   | -                 | -           | -                      | 6     |
+||| | 0 |    A   |                  No                 |         -         |      -      |            -           |   0   |
+||| | 1 |    B   |                  No                 |         -         |      -      |            -           |   0   |
+||| | 2 |    C   |                 Yes                 |         3         |      1      |           -1           |   3   |
+||| | 3 |    A   |                  No                 |         -         |      -      |            -           |   0   |
+||| | 4 |    B   |                  No                 |         -         |      -      |            -           |   0   |
+||| | 5 |    C   |               - (last)              |         -         |      -      |            -           |   6   |
 |||
 prop_suffixLengths' : Property
 prop_suffixLengths' = property1 $
@@ -244,7 +244,7 @@ prop_suffixLengths' = property1 $
            ( run1 $ \t =>
                let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
                    suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
-                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,0,2,0,0,6]
+                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,0,3,0,0,6]
 
 ||| prop_suffixShifts: "ANPANMAN"
 |||
@@ -269,7 +269,7 @@ prop_suffixShifts = property1 $
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
                    suffixshifts' # t := Data.Array.Core.freeze suffixshifts t
-                 in Prelude.Interfaces.toList suffixshifts' # t ) === [8,8,8,8,8,3,6,1]
+                 in Prelude.Interfaces.toList suffixshifts' # t ) === [6,6,6,6,6,3,8,1]
 
 ||| prop_suffixShifts': "ABCABC"
 |||
@@ -292,7 +292,7 @@ prop_suffixShifts' = property1 $
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
                    suffixshifts' # t := Data.Array.Core.freeze suffixshifts t
-                 in Prelude.Interfaces.toList suffixshifts' # t ) === [6,6,6,3,6,1]
+                 in Prelude.Interfaces.toList suffixshifts' # t ) === [3,3,3,6,6,1]
 
 export
 props_ANPANMAN : Group

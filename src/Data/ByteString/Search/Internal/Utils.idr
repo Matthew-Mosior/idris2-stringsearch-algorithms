@@ -373,7 +373,7 @@ suffixLengths bs t =
         -> (j : Int)
         -> F1 s Int
     dec diff j t =
-      case j == 0 of
+      case j < 0 of
         True  =>
           j # t
         False =>
