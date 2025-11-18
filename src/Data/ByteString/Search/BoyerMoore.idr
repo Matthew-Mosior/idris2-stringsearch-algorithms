@@ -196,7 +196,7 @@ matcher overlap pat target t =
                                                    maxdiff := minus (length target) (length pat)
                                                  in case (cast {to=Int} maxdiff) < diff' of
                                                       True  =>
-                                                        final # t
+                                                        final' # t
                                                       False =>
                                                         assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
                                              False =>
@@ -211,13 +211,13 @@ matcher overlap pat target t =
                                                maxdiff := minus (length target) (length pat)
                                              in case (cast {to=Int} maxdiff) < diff' of
                                                   True  =>
-                                                    final # t
+                                                    final' # t
                                                   False =>
                                                     assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
                                          False =>
                                            assert_total (afterMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
                             False =>
-                              case pati == (cast {to=Int} (minus (length pat) (S 0))) of
+                              case pati == ((cast {to=Int} (length pat)) - 1) of
                                 True  =>
                                   case tryNatToFin (cast {to=Nat} diffpati') of
                                     Nothing         =>
