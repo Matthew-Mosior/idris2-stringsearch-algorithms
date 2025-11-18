@@ -3,8 +3,3 @@ type = "local"
 path = "."
 ipkg = "stringsearch-algorithms.ipkg"
 test = "test/test.ipkg"
-
-[custom.all.stringsearch-algorithms-test]
-type = "local"
-path = "test"
-ipkg = "test.ipkg"
