@@ -36,8 +36,12 @@ prop_matchBM = property1 $
                   No  _         =>
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
-                    ( run1 $ \t =>
-                        matchBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3,6]
+                    case decSo $ (length targetbs) > (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            matchBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [0,3,6]
 
 ||| prop_indicesBM:
 |||
@@ -64,8 +68,12 @@ prop_indicesBM = property1 $
                   No  _         =>
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
-                    ( run1 $ \t =>
-                        indicesBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3]
+                    case decSo $ (length targetbs) > (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            indicesBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [0,3]
 
 export
 props : Group
