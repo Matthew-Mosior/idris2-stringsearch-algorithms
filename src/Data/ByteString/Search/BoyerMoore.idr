@@ -277,7 +277,7 @@ matchBM :  (pat : ByteString)
         -> {0 prftarget : So (not $ null target)}
         -> {0 prflength : So ((length target) >= (length pat))}
         -> F1 s (List Int)
-matchBM pat target {prfpat} {prftarget} t =
+matchBM pat target {prfpat} {prftarget} {prflength} t =
   matcher False pat target t
 
 ||| Performs a string search on a `ByteString` utilizing a Boyer-Moore algorithm.
@@ -308,5 +308,5 @@ indicesBM :  (pat : ByteString)
           -> {0 prftarget : So (not $ null target)}
           -> {0 prflength : So ((length target) >= (length pat))}
           -> F1 s (List Int)
-indicesBM pat target {prfpat} {prftarget} t =
+indicesBM pat target {prfpat} {prftarget} {prflength} t =
   matcher True pat target t
