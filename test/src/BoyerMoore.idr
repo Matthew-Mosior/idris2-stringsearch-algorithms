@@ -36,7 +36,7 @@ prop_matchBM = property1 $
                   No  _         =>
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
-                    case decSo $ (length targetbs) > (length patbs) of
+                    case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
@@ -68,7 +68,7 @@ prop_indicesBM = property1 $
                   No  _         =>
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
-                    case decSo $ (length targetbs) > (length patbs) of
+                    case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
