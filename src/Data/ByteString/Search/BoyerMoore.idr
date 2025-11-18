@@ -158,7 +158,7 @@ matcher overlap pat target t =
                                              True  =>
                                                final # t
                                              False =>
-                                               assert_total (checkEnd (diff' +  ((cast {to=Int} (length pat)) - 1)) pat target final occurrencesarr suffixshiftarr overlap t)
+                                               assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final occurrencesarr suffixshiftarr overlap t)
       afterMatch :  (diff : Int)
                  -> (pati : Int)
                  -> (pat : ByteString)
