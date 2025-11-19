@@ -257,16 +257,15 @@ matcher overlap pat target t =
 ||| | ---- | ---------- |
 ||| | "AN" | "ANPANMAN" |
 |||
-||| | Start | Substring      | Match? | Explanation                                      |
-||| | ----- | -------------- | ------ | ------------------------------------------------ |
-||| | 0     | **"AN"**PANMAN | Yes    | Full pattern `"AN"` matches starting at index 0. |
-||| | 1     | A**"NP"**ANMAN | No     | Mismatch after the first character.              |
-||| | 2     | AN**"PA"**NMAN | No     | No match — next candidate after suffix shift.    |
-||| | 3     | ANP**"AN"**MAN | Yes    | Match found at index 3.                          |
-||| | 4     | ANPA**"NM"**AN | No     | Mismatch.                                        |
-||| | 5     | ANPAN**"MA"**N | No     | Mismatch.                                        |
-||| | 6     | ANPANM**"AN"** | Yes    | Final match found at index 6.                    |
-||| 
+||| | s | window T[s..s+1] | comparisons (right→left)      | result    |                  bad-char |     good-suffix | chosen shift | next s |
+||| | - | ---------------- | ----------------------------- | --------- | ------------------------- | --------------- | ------------ | ------ |
+||| | 0 | **AN**           | j=1: N==N ✓ → j=0: A==A ✓     | **MATCH** |                         — | (after match) 2 |            2 |      2 |
+||| | 1 | N**P**           | j=1: N vs P → mismatch at j=1 | mismatch  | lastOcc('P')=-1 → bad = 2 | suffShifts[1]=1 |        **2** |      3 |
+||| | 2 | P**A**           | j=1: N vs A → mismatch at j=1 | mismatch  |  lastOcc('A')=0 → bad = 1 |        good = 1 |        **1** |      3 |
+||| | 3 | **AN**           | j=1: N==N ✓ → j=0: A==A ✓     | **MATCH** |                         — | (after match) 2 |            2 |      5 |
+||| | 4 | N**M**           | j=1: N vs M → mismatch at j=1 | mismatch  | lastOcc('M')=-1 → bad = 2 |        good = 1 |        **2** |      6 |
+||| | 5 | M**A**           | j=1: N vs A → mismatch at j=1 | mismatch  |  lastOcc('A')=0 → bad = 1 |        good = 1 |        **1** |      6 |
+||| | 6 | **AN**           | j=1: N==N ✓ → j=0: A==A ✓     | **MATCH** |                         — | (after match) 2 |            2 |      — |
 |||
 ||| matchBM "AN" "ANPANMAN" => [0, 3, 6]
 |||
@@ -292,12 +291,12 @@ matchBM pat target {prfpat} {prftarget} {prflength} t =
 ||| | ----- | ----------- |
 ||| | "ABC" | "ABCABCABC" |
 |||
-||| | Start | Substring       | Match? | Explanation                                                      |
-||| | ----- | --------------- | ------ | ---------------------------------------------------------------- |
-||| | 0     | **"ABCABC"**ABC | Yes    | Full pattern matches starting at index 0.                        |
-||| | 1     | A**"BCABCA"**BC | No     | Mismatch starts immediately after first letter.                  |
-||| | 2     | AB**"CABCAA"**C | No     | Shift by suffix table → mismatch on 2nd char.                    |
-||| | 3     | ABC**"ABC"**    | Yes    | Overlapping match starting at index 3 (because `"ABC"` repeats). |
+||| | Align s   | Window       | Comparison Result                  | Chosen Shift                         | Next s   |
+||| | --------- | ------------ | ---------------------------------- | ------------------------------------ | -------- |
+||| |     0     | **ABCABC**   | MATCH                              | good-suffix after full match = 3     |     3    |
+||| |     1     | A**BCABCA**  | MISMATCH on last char (`C` vs `A`) | max(bad=2, good=1) = 2               |     3    |
+||| |     2     | AB**CABCAA** | MISMATCH on last char (`C` vs `B`) | max(bad=1, good=1) = 1               |     3    |
+||| |     3     | ABC**ABC**   | MATCH                              | (would shift 3 again)                |     —    |
 ||| 
 ||| indicesBM "ABCABC" "ABCABCABC" => [0, 3]
 |||
