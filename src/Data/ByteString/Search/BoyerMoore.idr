@@ -429,3 +429,97 @@ splitKeepFrontBM pat target {prfpat} {prftarget} {prflength} t =
                  False =>
                    let final' := final :< (take (cast {to=Nat} i) target)
                      in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t) 
+
+||| Splits a ByteString into a list of pieces according to repeated
+||| Boyer–Moore matches of pat inside target, keeping the matching
+||| suffix of pat at the end of each produced chunk.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using the Boyer–Moore matcher with overlap = False).  Each time a
+||| match is found at index i, the next chunk emitted is the prefix of
+||| target of length i + length pat, which includes the entire matched
+||| occurrence of pat at its end.
+|||
+||| After emitting this chunk, the function continues splitting the
+||| remainder of target until all input has been consumed.
+|||
+||| Unlike splitKeepFrontBM, which keeps the matched prefix of pat
+||| at the front of each chunk, splitKeepEndBM ensures the match
+||| appears at the end of each chunk.
+|||
+||| If pat does not occur in target, the result is a singleton list
+||| containing the original target.
+|||
+export
+splitKeepEndBM :  (pat : ByteString)
+               -> (target : ByteString)
+               -> {0 prfpat : So (not $ null pat)}
+               -> {0 prftarget : So (not $ null target)}
+               -> {0 prflength : So ((length target) >= (length pat))}
+               -> F1 s (List ByteString)
+splitKeepEndBM pat target {prfpat} {prftarget} {prflength} t =
+  let splitter' # t := splitter pat target Lin t
+    in (splitter' <>> []) # t
+  where
+    splitter :  (pat : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    splitter pat target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) => 
+               let length' := plus (cast {to=Nat} i) (length pat)
+                   final'  := final :< (take length' target)
+                 in assert_total (splitter pat (drop length' target) final' t)
+
+||| Splits a ByteString into a list of pieces according to repeated
+||| Boyer–Moore matches of pat inside target, dropping each matched
+||| occurrence from the output entirely.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using the Boyer–Moore matcher with overlap = False).  Each time a
+||| match is found at index i, the prefix of target of length i
+||| (that is, the portion preceding the match) is emitted as the next
+||| chunk.  The matched substring itself is not included.
+|||
+||| After emitting this prefix, the function continues splitting the
+||| remainder of target, skipping over the full match of length
+||| i + length pat.  This process continues until the entire target
+||| has been consumed.
+|||
+||| Unlike splitKeepFrontBM and splitKeepEndBM, which include the
+||| matched pattern in each emitted chunk, splitDropBM removes all
+||| occurrences of pat from the output.
+|||
+||| If pat does not occur in target, the result is a singleton list
+||| containing the original target.
+|||
+export
+splitDropBM :  (pat : ByteString)
+            -> (target : ByteString)
+            -> {0 prfpat : So (not $ null pat)}
+            -> {0 prftarget : So (not $ null target)}
+            -> {0 prflength : So ((length target) >= (length pat))}
+            -> F1 s (List ByteString)
+splitDropBM pat target {prfpat} {prftarget} {prflength} t =
+  let splitter' # t := splitter pat target Lin t
+    in (splitter' <>> []) # t
+  where
+    splitter :  (pat : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    splitter pat target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) =>
+               let length' := plus (cast {to=Nat} i) (length pat)
+                   final'  := final :< (take (cast {to=Nat} i) target)
+                 in assert_total (splitter pat (drop length' target) final' t)
