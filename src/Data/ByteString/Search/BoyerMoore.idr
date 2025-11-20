@@ -310,7 +310,7 @@ indicesBM :  (pat : ByteString)
 indicesBM pat target {prfpat} {prftarget} {prflength} t =
   matcher True pat target t
 
-||| Splits a ByteString at the first Boyer–Moore match of pat in target.
+||| Splits a ByteString at the first match of pat in target.
 |||
 ||| This function uses the Boyer–Moore matcher (with overlap = False) to
 ||| locate the earliest occurrence of pat in target.  If the pattern is
@@ -341,7 +341,7 @@ breakBM pat target {prfpat} {prftarget} {prflength} t =
                    Just target'' =>
                      target'' # t
 
-||| Splits a ByteString after the first Boyer–Moore match of pat in target.
+||| Splits a ByteString after the first match of pat in target.
 |||
 ||| This function uses the Boyer–Moore matcher (with overlap = False) to
 ||| find the earliest occurrence of pat in target.  If the pattern is
@@ -374,7 +374,7 @@ breakAfterBM pat target {prfpat} {prftarget} {prflength} t =
                      target'' # t
 
 ||| Splits a ByteString into a list of pieces according to repeated
-||| Boyer–Moore matches of target, keeping the matching prefix of pat
+||| matches of target, keeping the matching prefix of pat
 ||| at the front of each produced chunk.
 |||
 ||| This function repeatedly searches target for occurrences of pat
@@ -431,7 +431,7 @@ splitKeepFrontBM pat target {prfpat} {prftarget} {prflength} t =
                      in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t) 
 
 ||| Splits a ByteString into a list of pieces according to repeated
-||| Boyer–Moore matches of pat inside target, keeping the matching
+||| matches of pat inside target, keeping the matching
 ||| suffix of pat at the end of each produced chunk.
 |||
 ||| This function repeatedly searches target for occurrences of pat
@@ -477,7 +477,7 @@ splitKeepEndBM pat target {prfpat} {prftarget} {prflength} t =
                  in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Splits a ByteString into a list of pieces according to repeated
-||| Boyer–Moore matches of pat inside target, dropping each matched
+||| matches of pat inside target, dropping each matched
 ||| occurrence from the output entirely.
 |||
 ||| This function repeatedly searches target for occurrences of pat

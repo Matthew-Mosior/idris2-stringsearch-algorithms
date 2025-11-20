@@ -67,9 +67,149 @@ prop_indicesDFA = property1 $
                     ( run1 $ \t =>
                         indicesDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3]
 
+||| prop_breakDFA:
+|||
+||| breakDFA "ABCABC" "ABCABCABC" => (empty, ABCABCABC)
+|||
+prop_breakDFA : Property
+prop_breakDFA = property1 $
+  let pat   := Prelude.unpack "ABCABC"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            breakDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Data.ByteString.empty
+                                                                                                                       , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                                                                                                                       )
+
+||| prop_breakAfterDFA:
+|||
+||| breakAfterDFA "ABCABC" "ABCABCABC" => (ABCABC, ABC)
+|||
+prop_breakAfterDFA : Property
+prop_breakAfterDFA = property1 $
+  let pat   := Prelude.unpack "ABCABC"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            breakAfterDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
+                                                                                                                            , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                            )
+
+
+||| prop_splitKeepFrontDFA:
+|||
+||| splitKeepFrontDFA "ABCABC" "ABCABCABC" => [ABCABCABC]
+|||
+prop_splitKeepFrontDFA : Property
+prop_splitKeepFrontDFA = property1 $
+  let pat   := Prelude.unpack "ABCABC"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            splitKeepFrontDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                                                                                                                                ]
+
+||| prop_splitKeepEndDFA:
+|||
+||| splitKeepEndDFA "ABCABC" "ABCABCABC" => [ABCABC, ABC]
+|||
+prop_splitKeepEndDFA : Property
+prop_splitKeepEndDFA = property1 $
+  let pat   := Prelude.unpack "ABCABC"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            splitKeepEndDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                              ]
+
+||| prop_splitDropDFA:
+|||
+||| splitDropDFA "ABCABC" "ABCABCABC" => [empty, ABC]
+|||
+prop_splitDropDFA : Property
+prop_splitDropDFA = property1 $
+  let pat   := Prelude.unpack "ABCABC"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            splitDropDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.empty
+                                                                                                                           , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                           ]
+
 export
 props : Group
 props = MkGroup "DFA"
   [ ("prop_matchDFA", prop_matchDFA)
   , ("prop_indicesDFA", prop_indicesDFA)
+  , ("prop_breakDFA", prop_breakDFA)
+  , ("prop_breakAfterDFA", prop_breakAfterDFA)
+  , ("prop_splitKeepFrontDFA", prop_splitKeepFrontDFA)
+  , ("prop_splitKeepEndDFA", prop_splitKeepEndDFA)
+  , ("prop_splitDropDFA", prop_splitDropDFA)
   ]

@@ -163,3 +163,217 @@ indicesDFA :  (pat : ByteString)
            -> F1 s (List Nat)
 indicesDFA pat target {prfpat} {prftarget} t =
   matcher True pat target t
+
+||| Splits a ByteString at the first match of pat in target.
+|||
+||| This function uses the deterministic-finite-automaton matcher (with overlap = False) to
+||| locate the earliest occurrence of pat in target.  If the pattern is
+||| found at index i, the pattern ByteString pat is split at that index,
+||| returning the prefix and suffix as a pair (before, after).
+|||
+||| If the pattern does not occur in the target, (pat, empty) is returned.
+||| In other words, the entire pattern becomes the “before” part and the
+||| “after” part is an empty ByteString.
+|||
+export
+breakDFA :  (pat : ByteString)
+         -> (target : ByteString)
+         -> {0 prfpat : So (not $ null pat)}
+         -> {0 prftarget : So (not $ null target)}
+         -> {0 prflength : So ((length target) >= (length pat))}
+         -> F1 s (ByteString, ByteString)
+breakDFA pat target {prfpat} {prftarget} {prflength} t =
+   let matcher' # t := matcher False pat target t
+     in case matcher' of
+          []       =>
+            (target, empty) # t
+          (i :: _) =>
+            let target' := splitAt (cast {to=Nat} i) target
+              in case target' of
+                   Nothing       =>
+                     (assert_total $ idris_crash "Data.ByteString.Search.DFA.breakDFA: can't split ByteString") # t
+                   Just target'' =>
+                     target'' # t
+
+||| Splits a ByteString after the first match of pat in target.
+|||
+||| This function uses the deterministic-finite-automaton matcher (with overlap = False) to
+||| find the earliest occurrence of pat in target.  If the pattern is
+||| found at index i, this function splits pat at position i + length pat,
+||| producing a pair (before, after) that places the entire matched region
+||| into the prefix.
+|||
+||| If the pattern does not occur in target, the function returns
+||| (pat, empty), the entire pattern is the “before” substring, and the
+||| suffix is empty.
+|||
+export
+breakAfterDFA : (pat : ByteString)
+              -> (target : ByteString)
+              -> {0 prfpat : So (not $ null pat)}
+              -> {0 prftarget : So (not $ null target)}
+              -> {0 prflength : So ((length target) >= (length pat))}
+              -> F1 s (ByteString, ByteString)
+breakAfterDFA pat target {prfpat} {prftarget} {prflength} t =
+   let matcher' # t := matcher False pat target t
+     in case matcher' of
+          []       =>
+            (target, empty) # t
+          (i :: _) =>
+            let target' := splitAt (plus (cast {to=Nat} i) (length pat)) target
+              in case target' of
+                   Nothing    =>
+                     (assert_total $ idris_crash "Data.ByteString.Search.DFA.breakAfterDFA: can't split ByteString") # t
+                   Just target'' =>
+                     target'' # t
+
+||| Splits a ByteString into a list of pieces according to repeated
+||| matches of target, keeping the matching prefix of pat
+||| at the front of each produced chunk.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using the deterministic-finite-automaton matcher with overlap = False).  Each time a
+||| match is found at index i, the prefix of pat up to i + length pat
+||| is emitted as the next chunk, and the function continues processing the
+||| remaining suffix of pat.
+|||
+||| Unlike breakDFA or breakAfterDFA, this function performs repeated
+||| splitting until the entire pattern has been consumed, producing a
+||| list of ByteStrings.
+|||
+export
+splitKeepFrontDFA :  (pat : ByteString)
+                  -> (target : ByteString)
+                  -> {0 prfpat : So (not $ null pat)}
+                  -> {0 prftarget : So (not $ null target)}
+                  -> {0 prflength : So ((length target) >= (length pat))}
+                  -> F1 s (List ByteString)
+splitKeepFrontDFA pat target {prfpat} {prftarget} {prflength} t =
+  let splitter' # t := splitter pat target Lin t
+    in (splitter' <>> []) # t
+  where
+    psSplitter :  (pat : ByteString)
+               -> (target : ByteString)
+               -> (final : SnocList ByteString)
+               -> F1 s (SnocList ByteString)
+    psSplitter pat target final t =
+      let matcher' # t := matcher False pat (drop (length pat) target) t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) =>
+               let length' := plus (cast {to=Nat} i) (length pat)
+                   final'  := final :< (take length' target)
+                 in assert_total (psSplitter pat (drop length' target) final' t)
+    splitter :  (pat : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    splitter pat target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) =>
+               case i == 0 of
+                 True  =>
+                   assert_total (psSplitter pat target final t)
+                 False =>
+                   let final' := final :< (take (cast {to=Nat} i) target)
+                     in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t)
+
+||| Splits a ByteString into a list of pieces according to repeated
+||| matches of pat inside target, keeping the matching
+||| suffix of pat at the end of each produced chunk.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using the deterministic-finite-automaton matcher with overlap = False).  Each time a
+||| match is found at index i, the next chunk emitted is the prefix of
+||| target of length i + length pat, which includes the entire matched
+||| occurrence of pat at its end.
+|||
+||| After emitting this chunk, the function continues splitting the
+||| remainder of target until all input has been consumed.
+|||
+||| Unlike splitKeepFrontDFA, which keeps the matched prefix of pat
+||| at the front of each chunk, splitKeepEndDFA ensures the match
+||| appears at the end of each chunk.
+|||
+||| If pat does not occur in target, the result is a singleton list
+||| containing the original target.
+|||
+export
+splitKeepEndDFA :  (pat : ByteString)
+                -> (target : ByteString)
+                -> {0 prfpat : So (not $ null pat)}
+                -> {0 prftarget : So (not $ null target)}
+                -> {0 prflength : So ((length target) >= (length pat))}
+                -> F1 s (List ByteString)
+splitKeepEndDFA pat target {prfpat} {prftarget} {prflength} t =
+  let splitter' # t := splitter pat target Lin t
+    in (splitter' <>> []) # t
+  where
+    splitter :  (pat : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    splitter pat target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) =>
+               let length' := plus (cast {to=Nat} i) (length pat)
+                   final'  := final :< (take length' target)
+                 in assert_total (splitter pat (drop length' target) final' t)
+
+||| Splits a ByteString into a list of pieces according to repeated
+||| matches of pat inside target, dropping each matched
+||| occurrence from the output entirely.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using the deterministic-finite-automaton matcher with overlap = False).  Each time a
+||| match is found at index i, the prefix of target of length i
+||| (that is, the portion preceding the match) is emitted as the next
+||| chunk.  The matched substring itself is not included.
+|||
+||| After emitting this prefix, the function continues splitting the
+||| remainder of target, skipping over the full match of length
+||| i + length pat.  This process continues until the entire target
+||| has been consumed.
+|||
+||| Unlike splitKeepFrontDFA and splitKeepEndDFA, which include the
+||| matched pattern in each emitted chunk, splitDropKMP removes all
+||| occurrences of pat from the output.
+|||
+||| If pat does not occur in target, the result is a singleton list
+||| containing the original target.
+|||
+export
+splitDropDFA :  (pat : ByteString)
+             -> (target : ByteString)
+             -> {0 prfpat : So (not $ null pat)}
+             -> {0 prftarget : So (not $ null target)}
+             -> {0 prflength : So ((length target) >= (length pat))}
+             -> F1 s (List ByteString)
+splitDropDFA pat target {prfpat} {prftarget} {prflength} t =
+  let splitter' # t := splitter pat target Lin t
+    in (splitter' <>> []) # t
+  where
+    splitter :  (pat : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    splitter pat target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) =>
+               let length' := plus (cast {to=Nat} i) (length pat)
+                   final'  := final :< (take (cast {to=Nat} i) target)
+                 in assert_total (splitter pat (drop length' target) final' t)
