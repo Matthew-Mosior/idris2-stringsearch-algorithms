@@ -77,7 +77,7 @@ prop_indicesBM = property1 $
 
 ||| prop_breakBM:
 |||
-||| breakBM "ABCABC" "ABCABCABC" => (ABCABC, ABC)
+||| breakBM "ABCABC" "ABCABCABC" => (empty, ABCABCABC)
 |||
 prop_breakBM : Property
 prop_breakBM = property1 $
