@@ -309,3 +309,123 @@ indicesBM :  (pat : ByteString)
           -> F1 s (List Int)
 indicesBM pat target {prfpat} {prftarget} {prflength} t =
   matcher True pat target t
+
+||| Splits a ByteString at the first Boyer–Moore match of pat in target.
+|||
+||| This function uses the Boyer–Moore matcher (with overlap = False) to
+||| locate the earliest occurrence of pat in target.  If the pattern is
+||| found at index i, the pattern ByteString pat is split at that index,
+||| returning the prefix and suffix as a pair (before, after).
+|||
+||| If the pattern does not occur in the target, (pat, empty) is returned.
+||| In other words, the entire pattern becomes the “before” part and the
+||| “after” part is an empty ByteString.
+|||
+export
+breakBM :  (pat : ByteString)
+        -> (target : ByteString)
+        -> {0 prfpat : So (not $ null pat)}
+        -> {0 prftarget : So (not $ null target)}
+        -> {0 prflength : So ((length target) >= (length pat))}
+        -> F1 s (ByteString, ByteString)
+breakBM pat target {prfpat} {prftarget} {prflength} t =
+   let matcher' # t := matcher False pat target t
+     in case matcher' of
+          []       =>
+            (target, empty) # t
+          (i :: _) =>
+            let target' := splitAt (cast {to=Nat} i) target
+              in case target' of
+                   Nothing       =>
+                     (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.breakBM: can't split ByteString") # t
+                   Just target'' =>
+                     target'' # t
+
+||| Splits a ByteString after the first Boyer–Moore match of pat in target.
+|||
+||| This function uses the Boyer–Moore matcher (with overlap = False) to
+||| find the earliest occurrence of pat in target.  If the pattern is
+||| found at index i, this function splits pat at position i + length pat,
+||| producing a pair (before, after) that places the entire matched region
+||| into the prefix.
+|||
+||| If the pattern does not occur in target, the function returns
+||| (pat, empty), the entire pattern is the “before” substring, and the
+||| suffix is empty.
+|||
+export
+breakAfterBM :  (pat : ByteString)
+             -> (target : ByteString)
+             -> {0 prfpat : So (not $ null pat)}
+             -> {0 prftarget : So (not $ null target)}
+             -> {0 prflength : So ((length target) >= (length pat))}
+             -> F1 s (ByteString, ByteString)
+breakAfterBM pat target {prfpat} {prftarget} {prflength} t =
+   let matcher' # t := matcher False pat target t
+     in case matcher' of
+          []       =>
+            (target, empty) # t
+          (i :: _) =>
+            let target' := splitAt (plus (cast {to=Nat} i) (length pat)) target
+              in case target' of
+                   Nothing    =>
+                     (assert_total $ idris_crash "Data.ByteString.Search.BoyerMoore.breakBM: can't split ByteString") # t
+                   Just target'' =>
+                     target'' # t
+
+||| Splits a ByteString into a list of pieces according to repeated
+||| Boyer–Moore matches of target, keeping the matching prefix of pat
+||| at the front of each produced chunk.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using the Boyer–Moore matcher with overlap = False).  Each time a
+||| match is found at index i, the prefix of pat up to i + length pat
+||| is emitted as the next chunk, and the function continues processing the
+||| remaining suffix of pat.
+|||
+||| Unlike breakBM or breakAfterBM, this function performs repeated
+||| splitting until the entire pattern has been consumed, producing a
+||| list of ByteStrings.
+|||
+export
+splitKeepFrontBM :  (pat : ByteString)
+                 -> (target : ByteString)
+                 -> {0 prfpat : So (not $ null pat)}
+                 -> {0 prftarget : So (not $ null target)}
+                 -> {0 prflength : So ((length target) >= (length pat))}
+                 -> F1 s (List ByteString)
+splitKeepFrontBM pat target {prfpat} {prftarget} {prflength} t =
+  let splitter' # t := splitter pat target Lin t
+    in (splitter' <>> []) # t
+  where
+    psSplitter :  (pat : ByteString)
+               -> (target : ByteString)
+               -> (final : SnocList ByteString)
+               -> F1 s (SnocList ByteString)
+    psSplitter pat target final t =
+      let matcher' # t := matcher False pat (drop (length pat) target) t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) => 
+               let length' := plus (cast {to=Nat} i) (length pat)
+                   final'  := final :< (take length' target)
+                 in assert_total (psSplitter pat (drop length' target) final' t) 
+    splitter :  (pat : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    splitter pat target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) => 
+               case i == 0 of
+                 True  =>
+                   assert_total (psSplitter pat target final t)
+                 False =>
+                   let final' := final :< (take (cast {to=Nat} i) target)
+                     in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t) 
