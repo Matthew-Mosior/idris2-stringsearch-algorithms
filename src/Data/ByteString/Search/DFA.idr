@@ -377,3 +377,66 @@ splitDropDFA pat target {prfpat} {prftarget} {prflength} t =
                let length' := plus (cast {to=Nat} i) (length pat)
                    final'  := final :< (take (cast {to=Nat} i) target)
                  in assert_total (splitter pat (drop length' target) final' t)
+
+||| Replaces all non-overlapping occurrences of a pattern in a ByteString
+||| using the deterministic-finite-automaton matcher.
+|||
+||| This function repeatedly searches target for occurrences of pat
+||| (using matcher False). Each time a match is found at index i:
+|||
+||| * If i == 0, the match is at the current position. The matched
+|||   segment is dropped and sub is appended to the result (unless
+|||   sub is empty, in which case nothing is appended).
+|||
+||| * If i > 0, the prefix take i target is appended to the result,
+|||   followed by sub (unless sub is empty). The matched segment is
+|||   then dropped and processing continues on the remaining suffix.
+|||
+||| If no further matches are found, the remaining target is appended
+||| unchanged and the result is returned.
+|||
+||| The result is accumulated via a `SnocList` and returned as a `List
+||| ByteString`, preserving left-to-right order of the produced chunks.
+|||
+export
+replaceDFA :  (pat : ByteString)
+           -> (sub : ByteString)
+           -> (target : ByteString)
+           -> {0 prfpat : So (not $ null pat)}
+           -> {0 prftarget : So (not $ null target)}
+           -> {0 prflength : So ((length target) >= (length pat))}
+           -> F1 s (List ByteString)
+replaceDFA pat sub target {prfpat} {prftarget} {prflength} t =
+  let replacer' # t := replacer pat sub target Lin t
+    in (replacer' <>> []) # t
+  where
+    replacer :  (pat : ByteString)
+             -> (sub : ByteString)
+             -> (target : ByteString)
+             -> (final : SnocList ByteString)
+             -> F1 s (SnocList ByteString)
+    replacer pat sub target final t =
+      let matcher' # t := matcher False pat target t
+        in case matcher' of
+             []       =>
+               let final' := final :< target
+                 in final' # t
+             (i :: _) =>
+               case i of
+                 0 =>
+                   case null sub of
+                     True  =>
+                       assert_total (replacer pat sub (drop (length pat) target) final t)
+                     False =>
+                       let final' := final :< sub
+                         in assert_total (replacer pat sub (drop (length pat) target) final') t
+                 _ =>
+                   case null sub of
+                     True  =>
+                       let length' := plus (cast {to=Nat} i) (length pat)
+                           final'  := final :< (take (cast {to=Nat} i) target)
+                         in assert_total (replacer pat sub (drop length' target) final' t)
+                     False =>
+                       let length' := plus (cast {to=Nat} i) (length pat)
+                           final'  := final :< (take (cast {to=Nat} i) target) :< sub
+                         in assert_total (replacer pat sub (drop length' target) final' t)

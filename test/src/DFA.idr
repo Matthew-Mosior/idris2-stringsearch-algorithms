@@ -202,6 +202,39 @@ prop_splitDropDFA = property1 $
                                                                                                                            , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
                                                                                                                            ]
 
+||| prop_replaceDFA:
+|||
+||| replaceDFA "AB" "BA" ABCABCABC" => [BA, C, BA, C , BA, C]
+|||
+prop_replaceDFA : Property
+prop_replaceDFA = property1 $
+  let pat   := Prelude.unpack "AB"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let sub      := Prelude.unpack "BA"
+               subbs    := Data.ByteString.pack (map (cast {to=Bits8}) sub)
+               target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            replaceDFA patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                               ]
+
 export
 props : Group
 props = MkGroup "DFA"
@@ -212,4 +245,5 @@ props = MkGroup "DFA"
   , ("prop_splitKeepFrontDFA", prop_splitKeepFrontDFA)
   , ("prop_splitKeepEndDFA", prop_splitKeepEndDFA)
   , ("prop_splitDropDFA", prop_splitDropDFA)
+  , ("prop_replaceDFA", prop_replaceDFA)
   ]

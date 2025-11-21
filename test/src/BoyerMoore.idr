@@ -210,6 +210,38 @@ prop_splitDropBM = property1 $
                                                                                                                           , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
                                                                                                                           ]
 
+||| prop_replaceBM:
+|||
+||| replaceBM "AB" "BA" ABCABCABC" => [BA, C, BA, C, BA, C]
+|||
+prop_replaceBM : Property
+prop_replaceBM = property1 $
+  let pat   := Prelude.unpack "AB"
+      patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
+    in case decSo $ (not $ null patbs) of
+         No  _      =>
+           assert_total $ idris_crash "pat is null"
+         Yes patprf =>
+           let sub      := Prelude.unpack "BA"
+               subbs    := Data.ByteString.pack (map (cast {to=Bits8}) sub)
+               target   := Prelude.unpack "ABCABCABC"
+               targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
+             in case decSo $ (not $ null targetbs) of
+                  No  _         =>
+                    assert_total $ idris_crash "target is null"
+                  Yes targetprf =>
+                    case decSo $ (length targetbs) >= (length patbs) of
+                      No  _         =>
+                        assert_total $ idris_crash "the target is shorter than the pattern"
+                      Yes lengthprf =>
+                        ( run1 $ \t =>
+                            replaceBM patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                              ]
 export
 props : Group
 props = MkGroup "BoyerMoore"
@@ -220,4 +252,5 @@ props = MkGroup "BoyerMoore"
   , ("prop_splitKeepFrontBM", prop_splitKeepFrontBM)
   , ("prop_splitKeepEndBM", prop_splitKeepEndBM)
   , ("prop_splitDropBM", prop_splitDropBM)
+  , ("prop_replaceBM", prop_replaceBM)
   ]
