@@ -1,0 +1,13 @@
+package stringsearch-algorithms-profile
+
+authors    = "Matthew Mosior"
+version    = 0.7.0
+sourcedir  = "src"
+depends    = bytestring
+           , profiler
+           , random-pure
+           , ref1
+           , stringsearch-algorithms
+
+executable = "profile-stringsearch-algorithms"
+main       = Main
