@@ -4,7 +4,6 @@ import Data.ByteString.Search.KnuthMorrisPratt
 
 import Data.ByteString
 import Profile
-import System.Random.Pure.StdGen
 
 export
 kmpfavoredpat : ByteString

@@ -4,7 +4,6 @@ import Data.ByteString.Search.BoyerMoore
 
 import Data.ByteString
 import Profile
-import System.Random.Pure.StdGen
 
 export
 bmfavoredpat : ByteString

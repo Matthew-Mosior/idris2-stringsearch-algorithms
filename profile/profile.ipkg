@@ -5,7 +5,6 @@ version    = 0.7.0
 sourcedir  = "src"
 depends    = bytestring
            , profiler
-           , random-pure
            , ref1
            , stringsearch-algorithms
 
