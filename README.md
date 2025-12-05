@@ -549,13 +549,13 @@ Keep in mind, the KMP borders are already pre-computed via the `kmpBorders` func
 
 #### Example
 
+Given the following pattern "ANPANMAN":
+
 `automaton` produces the following:
 
 `[(65, 1), (321, 1), (334, 2), (577, 1), (592, 3), (833, 4), (1089, 1), (1102, 5), (1345, 1), (1357, 6), (1601, 7), (1857, 1), (1870, 8), (2113, 1)]`
 
 Which can be summarized with the following table:
-
-Given the following pattern "ANPANMAN":
 
 | Flat index | State | Char code | Char | Meaning       |
 | ---------- | ----- | --------- | ---- | ------------- |
