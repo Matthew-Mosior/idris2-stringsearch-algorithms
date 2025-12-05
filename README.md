@@ -250,7 +250,7 @@ suffixLengths bs t =
 
 For each position i in the pattern, `suffixLengths[i]` tells you how long a suffix of `P[0..i]` matches the suffix of the full pattern.
 
-###### Example
+##### Example
 
 Given the following pattern "ANPANMAN":
 
@@ -275,7 +275,7 @@ The suffixes of the pattern are:
 
 `suffixLengths` produces the following:
 
-`[0,2,0,0,2,0,0,8]`
+`[0, 2, 0, 0, 2, 0, 0, 8]`
 
 Which can be summarized with the following table:
 
@@ -389,6 +389,26 @@ suffixShifts bs {prf} t =
 `prefixShifts` shifts the pattern so that prefix lines up with the suffix if a suffix of the matched portion is also a prefix of the pattern.
 
 `suffixShift` shifts the pattern so that the next instance of that suffix aligns if a mismatch occurred at index `i` and the suffix length is `s`, which looks like `shift = (pattern length - 1) - i`.
+
+##### Example
+
+Given the following pattern "ANPANMAN":
+
+`suffixShifts` produces the following:
+
+`[6, 6, 6, 6, 6, 3, 8, 1]`
+
+Which can be summarized with the following table:
+
+| Index | suff[idx] | target = patEnd - suff[idx] | value = patEnd - idx | array after write        |
+| ----- | --------- | --------------------------- | -------------------- | ------------------------ |
+|   0   |         0 |                   7 - 0 = 7 |            7 - 0 = 7 | [6, 6, 6, 6, 6, 6, 8, 7] |
+|   1   |         2 |                   7 - 2 = 5 |            7 - 1 = 6 | [6, 6, 6, 6, 6, 6, 8, 7] |
+|   2   |         0 |                           7 |            7 - 2 = 5 | [6, 6, 6, 6, 6, 6, 8, 5] |
+|   3   |         0 |                           7 |            7 - 3 = 4 | [6, 6, 6, 6, 6, 6, 8, 4] |
+|   4   |         2 |                   7 - 2 = 5 |            7 - 4 = 3 | [6, 6, 6, 6, 6, 3, 8, 4] |
+|   5   |         0 |                           7 |            7 - 5 = 2 | [6, 6, 6, 6, 6, 3, 8, 2] |
+|   6   |         0 |                           7 |            7 - 6 = 1 | [6, 6, 6, 6, 6, 3, 8, 1] |
 
 ### DFA algorithm
 
@@ -632,7 +652,7 @@ Given the following pattern "ANPANMAN":
 
 `kmpBorders` produces the following:
 
-`[0,0,0,0,1,2,0,1,2]`
+`[0, 0, 0, 0, 1, 2, 0, 1, 2]`
 
 Which can be summarized with the following table:
 
