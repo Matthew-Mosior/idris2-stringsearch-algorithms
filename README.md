@@ -64,7 +64,7 @@ occurrences bs t =
 
 It accomplishes this by storing:
 
--   Storing he negative `index` of the rightmost occurrence, which is important as it allows computing shift with a **single addition**.
+-   Storing he negative `index` of the rightmost occurrence, which is important as it allows computing shift with a single addition.
 -   Defaulting to `1` for unknown characters, which allows the algorithm to slide pattern completely past them.
     -  This is done early on when we create the array initially, `marray1 256 (the Int 1) t`.
 -  Ignoring the last pattern index, which prevents zero-shift infinite loops.
