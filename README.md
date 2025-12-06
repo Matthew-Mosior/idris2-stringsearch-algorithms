@@ -1,10 +1,13 @@
 # Fast searching, replacing, and splitting of ByteStrings
 
-This is a string-searching library that provides [array](https://github.com/stefan-hoeck/idris2-array)-backed implementations of the [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm, [Knuth-Morris-Pratt](https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm) algorithm, and a [deterministic-finite-automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) (DFA) based algorithm.
+This is a string-searching library that provides [array](https://github.com/stefan-hoeck/idris2-array)-backed implementations of the [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm,
+[Knuth-Morris-Pratt](https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm) algorithm,
+and a [deterministic-finite-automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) (DFA) based algorithm.
 
 ## String-searching algorithms
 
-String-searching (or string-matching) is the problem of finding occurrence(s) of a [_pattern_](https://xlinux.nist.gov/dads/HTML/pattern.html) string within another [_string_](https://xlinux.nist.gov/dads/HTML/string.html) or body of text (see the National Institute of Standards and Technology’s (NIST) Dictionary of Algorithms and Data Structures (DADS) article for [string-matching](https://xlinux.nist.gov/dads/HTML/stringMatching.html)).
+String-searching (or string-matching) is the problem of finding occurrence(s) of a [_pattern_](https://xlinux.nist.gov/dads/HTML/pattern.html) string
+within another [_string_](https://xlinux.nist.gov/dads/HTML/string.html) or body of text (see the National Institute of Standards and Technology’s (NIST) Dictionary of Algorithms and Data Structures (DADS) article for [string-matching](https://xlinux.nist.gov/dads/HTML/stringMatching.html)).
 
 String-searching algorithms are used in many real-world applications, such as:
 
@@ -18,11 +21,15 @@ String-searching algorithms are used in many real-world applications, such as:
 
 ### Boyer-Moore algorithm
 
-The [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm, developed in 1977 by Robert S. Boyer and J. Strother Moore, is considered the standard by which all other string-searching algorithms are bench-marked.  The key idea of this algorithm is that it pre-computes the shifts of bad-characters and good-suffixes.
+The [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm,
+developed in 1977 by Robert S. Boyer and J. Strother Moore, is considered the standard by which all other string-searching algorithms are bench-marked.
+The key idea of this algorithm is that it pre-computes the shifts of bad-characters and good-suffixes.
 
 #### Bad Character Rule
 
-The bad-character rule considers the character in the text (T) at which the comparison process failed (assuming such a failure occurred). The next occurrence of that character to the left in the pattern (P) is found, and a shift which brings that occurrence in line with the mismatched occurrence in T is proposed.  If the mismatched character does not occur to the left in P, a shift is proposed that moves the entirety of P past the point of mismatch.
+The bad-character rule considers the character in the text (T) at which the comparison process failed (assuming such a failure occurred).
+The next occurrence of that character to the left in the pattern (P) is found, and a shift which brings that occurrence in line with the mismatched occurrence in T is proposed.
+If the mismatched character does not occur to the left in P, a shift is proposed that moves the entirety of P past the point of mismatch.
 
 This library pre-computes the bad-character rule using the `occurrences` function (found in `Data.ByteString.Search.Internal.Utils` module):
 
@@ -412,7 +419,8 @@ Which can be summarized with the following table:
 
 ### DFA algorithm
 
-A DFA is a [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine "Finite-state machine") that accepts or rejects a given [string](https://en.wikipedia.org/wiki/String_(computer_science) "String (computer science)") of symbols, by running through a state sequence uniquely determined by the string.
+A DFA is a [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine "Finite-state machine") that accepts or rejects
+a given [string](https://en.wikipedia.org/wiki/String_(computer_science) "String (computer science)") of symbols, by running through a state sequence uniquely determined by the string.
 
 #### Creating the DFA via automaton
 
@@ -576,7 +584,9 @@ Which can be summarized with the following table:
 
 ### Knuth-Morris-Pratt algorithm
 
-The [Knuth-Morris-Pratt](https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm) (KMP) algorithm was developed almost simultaneously (within weeks of each other) by [James H. Morris](https://en.wikipedia.org/wiki/James_H._Morris "James H. Morris") and [Donald Knuth](https://en.wikipedia.org/wiki/Donald_Knuth "Donald Knuth").  Morris and [Vaughan Pratt](https://en.wikipedia.org/wiki/Vaughan_Pratt "Vaughan Pratt") formally published it in a technical report in 1970.
+The [Knuth-Morris-Pratt](https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm) (KMP) algorithm was developed almost simultaneously
+(within weeks of each other) by [James H. Morris](https://en.wikipedia.org/wiki/James_H._Morris "James H. Morris") and [Donald Knuth](https://en.wikipedia.org/wiki/Donald_Knuth "Donald Knuth").
+Morris and [Vaughan Pratt](https://en.wikipedia.org/wiki/Vaughan_Pratt "Vaughan Pratt") formally published it in a technical report in 1970.
 
 The KMP algorithm is a linear-time string-searching algorithm that finds all occurrences of a pattern within a text without re-examining characters that have already been matched.
 
@@ -644,7 +654,9 @@ kmpBorders bs t =
                  in set arr i' j t
 ```
 
-What's unique about `kmpBorders` is that it actually computes the _suffix_-oriented table, instead of the typical prefix-oriented table.  This is certainly preferred since that allows for a more natural implementation via structural recursion.  The table helps efficiently skip positions in the pattern during sub-string search, while descending from longer prefixes to shorter ones.
+What's unique about `kmpBorders` is that it actually computes the _suffix_-oriented table, instead of the typical prefix-oriented table.
+This is certainly preferred since that allows for a more natural implementation via structural recursion.
+The table helps efficiently skip positions in the pattern during sub-string search, while descending from longer prefixes to shorter ones.
 
 #### Example
 
