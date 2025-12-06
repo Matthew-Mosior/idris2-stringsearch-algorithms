@@ -2,6 +2,7 @@ package stringsearch-algorithms
 
 authors   = "Matthew Mosior"
 brief     = "Fast searching, splitting and replacing of ByteStrings"
+license   = "BSD-3 Clause"
 version   = 0.1.0
 sourcedir = "src"
 depends   = base
