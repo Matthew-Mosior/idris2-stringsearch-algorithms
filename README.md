@@ -33,7 +33,7 @@ If the mismatched character does not occur to the left in P, a shift is proposed
 
 This library pre-computes the bad-character rule using the `occurrences` function (found in `Data.ByteString.Search.Internal.Utils` module):
 
-```
+```idris
 occurrences :  (bs : ByteString)
             -> {0 prf : So (not $ null bs)}
             -> F1 s (MArray s 256 Int)
@@ -124,7 +124,7 @@ This library pre-computes the good-suffix rule using the `suffixLengths` and the
 
 Let's focus on the `suffixLengths` function first:
 
-```
+```idris
 suffixLengths :  (bs : ByteString)
               -> {0 prf : So (not $ null bs)}
               -> F1 s (MArray s (length bs) Int)
@@ -315,7 +315,7 @@ The above stores the number of characters backwards matched.
 
 Now, we can dive into the `suffixShifts` function:
 
-```
+```idris
 suffixShifts :  (bs : ByteString)
              -> {0 prf : So (not $ null bs)}
              -> F1 s (MArray s (length bs) Int)
@@ -426,7 +426,7 @@ a given [string](https://en.wikipedia.org/wiki/String_(computer_science) "String
 
 Given a pattern `P` of length `m` (length of `P`) and an alphabet `Σ` (Bytes = 256 values), the goal is to build a DFA using the `automaton` function found in the `Data.ByteString.Search.Internal.Utils` module:
 
-```
+```idris
 automaton :  (bs : ByteString)
           -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
 automaton bs t =
@@ -594,7 +594,7 @@ Instead of restarting the search from the beginning of the pattern after a misma
 
 This library pre-computes the table rule using the `kmpBorders` function (found in `Data.ByteString.Search.Internal.Utils` module):
 
-```
+```idris
 kmpBorders :  (bs : ByteString)
            -> F1 s (MArray s (S (length bs)) Nat)
 kmpBorders bs t =
