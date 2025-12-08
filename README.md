@@ -682,9 +682,9 @@ Which can be summarized with the following table:
 
 #### How KMP uses the suffix-oriented table
 
-During search, if you have matched `j` characters and then get a mismatch:
+Assume that `j` characters have been matched, and then a mismatch occurs.
 
-Instead of:
+Instead of the following:
 
 ```text
 textIndex = textIndex - j + 1
@@ -692,13 +692,13 @@ textIndex = textIndex - j + 1
 j = 0 
 ```
 
-You do:
+We can simply do:
 
 ```text
 j = kmpBorders[j - 1] 
 ```
 
-And continue from the already-known partial match.
+This allows continuation from the already-known partial match.
 
 This is what gives KMP its linear time, since each character in the text is processed at most once.
 
