@@ -424,7 +424,7 @@ a given [string](https://en.wikipedia.org/wiki/String_(computer_science) "String
 
 #### Creating the DFA via automaton
 
-Given a pattern `P` of length `m` (length of `P`) and an alphabet `Σ` (Bytes = 256 values), the goal is to build a DFA using the `automaton` function found in the `Data.ByteString.Search.Internal.Utils` module:
+Given a pattern `P` of length `m` (length of `P`) and an alphabet `Σ` (bytes = 256 values), the goal is to build a DFA using the `automaton` function found in the `Data.ByteString.Search.Internal.Utils` module:
 
 ```idris
 automaton :  (bs : ByteString)
