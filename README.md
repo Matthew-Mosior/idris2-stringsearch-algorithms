@@ -711,7 +711,7 @@ The following table (credit to [wikipedia](https://en.wikipedia.org/wiki/String-
 | DFA                | Θ(km)          | Θ(n)                           | Θ(km) |
 | Knuth-Morris-Pratt | Θ(m)           | Θ(n)                           | Θ(m)  |
 
-```
+```text
 m <-> length of pattern being searched for
 n <-> length of text being searched across
 k <-> |Σ| is the size of the alphabet
