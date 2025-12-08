@@ -1,6 +1,6 @@
 # Fast searching, replacing, and splitting of ByteStrings
 
-This is a [ByteString](https://github.com/stefan-hoeck/idris2-bytestring)-searching library that provides [array](https://github.com/stefan-hoeck/idris2-array)-backed implementations of the [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm,
+This is a [bytestring](https://github.com/stefan-hoeck/idris2-bytestring)-searching library that provides [array](https://github.com/stefan-hoeck/idris2-array)-backed implementations of the [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm,
 [Knuth-Morris-Pratt](https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm) algorithm,
 and a [deterministic-finite-automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) (DFA) based algorithm.
 
