@@ -71,16 +71,16 @@ occurrences bs t =
 
 It accomplishes this by storing:
 
--   Storing he negative `index` of the rightmost occurrence, which is important as it allows computing shift with a single addition.
--   Defaulting to `1` for unknown characters, which allows the algorithm to slide pattern completely past them.
-    -  This is done early on when we create the array initially, `marray1 256 (the Int 1) t`.
--  Ignoring the last pattern index, which prevents zero-shift infinite loops.
+- Storing he negative `index` of the rightmost occurrence, which is important as it allows computing shift with a single addition.
+- Defaulting to `1` for unknown characters, which allows the algorithm to slide pattern completely past them.
+  - This is done early on when we create the array initially, `marray1 256 (the Int 1) t`.
+- Ignoring the last pattern index, which prevents zero-shift infinite loops.
 
-##### Example
+##### Example - occurrences
 
 Given the following pattern "ANPANMAN":
 
-```
+```text
 0 1 2 3 4 5 6 7
 A N P A N M A N
 ```
@@ -94,18 +94,18 @@ The first element of tuple is the ASCII code for the character (`A` === `65`, `M
 Which can be summarized with the following table:
 
 | Char    | Last stored index | Table value |
-| ------- | ----------------- | ----------- | 
+| ------- | ----------------- | ----------- |
 | A       | 6                 | -6          |
 | M       | 5                 | -5          |
 | N       | 4                 | -4          |
 | P       | 2                 | -2          |
-| [^AMNP] | N/A               | 1           | 
+| [^AMNP] | N/A               | 1           |
 
 
-##### Summary 
+##### Summary
 
--   If the target has many characters not in the pattern, you'll get large shifts, which is fast since you can skip a great amount of characters/comparisons.
--   If the target contains lots of characters from the pattern near its end, you'll get small shifts, which is slower since the magnitude of the shifts is far small in comparison.
+- If the target has many characters not in the pattern, you'll get large shifts, which is fast since you can skip a great amount of characters/comparisons.
+- If the target contains lots of characters from the pattern near its end, you'll get small shifts, which is slower since the magnitude of the shifts is far small in comparison.
 
 The above illustrates why it's important to keep in mind that Boyer–Moore is very sensitive to character distribution, unlike the DFA-based algorithm (which we'll dive into later).
 
@@ -115,10 +115,10 @@ The good suffix rule is another pre-processing that occurs within the Boyer-Moor
 
 The Boyer-Moore Wikipedia [article](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) gives a nice description:
 > Suppose for a given alignment of _**P**_ and _**T**_, a substring _**t**_ of _**T**_ matches a suffix of _**P**_ and suppose _**t**_ is the largest such substring for the given alignment.
-> 
-> 1.  Then find, if it exists, the right-most copy _**t′**_ of _**t**_ in _**P**_ such that _**t′**_ is not a suffix of _**P**_ and the character to the left of _**t′**_ in _**P**_ differs from the character to the left of _**t**_ in _**P**_. Shift _**P**_ to the right so that substring _**t′**_ in _**P**_ aligns with substring _**t**_ in _**T**_.
-> 2.  If _**t′**_ does not exist, then shift the left end of _**P**_ to the right by the least amount (past the left end of _**t**_ in _**T**_) so that a prefix of the shifted pattern matches a suffix of _**t**_ in _**T**_. This includes cases where _**t**_ is an exact match of _**P**_.
-> 3.  If no such shift is possible, then shift _**P**_ by **m** (length of P) places to the right.
+>
+> 1. Then find, if it exists, the right-most copy _**t′**_ of _**t**_ in _**P**_ such that _**t′**_ is not a suffix of _**P**_ and the character to the left of _**t′**_ in _**P**_ differs from the character to the left of _**t**_ in _**P**_. Shift _**P**_ to the right so that substring _**t′**_ in _**P**_ aligns with substring _**t**_ in _**T**_.
+> 2. If _**t′**_ does not exist, then shift the left end of _**P**_ to the right by the least amount (past the left end of _**t**_ in _**T**_) so that a prefix of the shifted pattern matches a suffix of _**t**_ in _**T**_. This includes cases where _**t**_ is an exact match of _**P**_.
+> 3. If no such shift is possible, then shift _**P**_ by **m** (length of P) places to the right.
 
 This library pre-computes the good-suffix rule using the `suffixLengths` and the `suffixShifts` functions (found in `Data.ByteString.Search.Internal.Utils` module).
 
@@ -257,18 +257,18 @@ suffixLengths bs t =
 
 For each position i in the pattern, `suffixLengths[i]` tells you how long a suffix of `P[0..i]` matches the suffix of the full pattern.
 
-##### Example
+##### Example - suffixLengths
 
 Given the following pattern "ANPANMAN":
 
-```
+```text
 0 1 2 3 4 5 6 7
 A N P A N M A N
 ```
 
 The suffixes of the pattern are:
 
-```
+```text
 "" 
 "N"
 "AN"
@@ -305,7 +305,7 @@ Starting at i, how many characters at the end match the pattern’s end?
 
 When `P[i] == P[last]`, it tries to grow a suffix, and continues until mismatch.  This gives the longest suffix match anchored at i.
 
-```
+```text
 set arr[i] = i - previ
 ```
 
@@ -397,7 +397,7 @@ suffixShifts bs {prf} t =
 
 `suffixShift` shifts the pattern so that the next instance of that suffix aligns if a mismatch occurred at index `i` and the suffix length is `s`, which looks like `shift = (pattern length - 1) - i`.
 
-##### Example
+##### Example - suffixShifts
 
 Given the following pattern "ANPANMAN":
 
@@ -537,15 +537,13 @@ The automaton is:
 
 Where:
 
--   `state` = how many characters of the pattern we have matched so far (`0 … m`)
-    
--   `byte` = next input character (`0 … 255`)
-    
--   `nextState` = the new amount of the pattern matched after seeing that byte
+- `state` = how many characters of the pattern we have matched so far (`0 … m`)  
+- `byte` = next input character (`0 … 255`)
+- `nextState` = the new amount of the pattern matched after seeing that byte
 
 Early on in the `automaton` function, we create an `MArray` of `(m + 1) states * 256 bytes` size:
 
-```
+```idris
 MArray s (mult (plus (length bs) 1) 256) Nat
 ```
 
@@ -555,7 +553,7 @@ The `go` and `fillState` nested functions build the DFA row by row, and then the
 
 Keep in mind, the KMP borders are already pre-computed via the `kmpBorders` function (more on this later). The array generated by `kmpBorders` encodes all valid fallback transitions, avoiding expensive back-tracking upon mismatches.
 
-#### Example
+#### Example - automaton
 
 Given the following pattern "ANPANMAN":
 
@@ -658,7 +656,7 @@ What's unique about `kmpBorders` is that it actually computes the _suffix_-orien
 This is certainly preferred since that allows for a more natural implementation via structural recursion.
 The table helps efficiently skip positions in the pattern during sub-string search, while descending from longer prefixes to shorter ones.
 
-#### Example
+#### Example - kmpBorders
 
 Given the following pattern "ANPANMAN":
 
