@@ -686,11 +686,17 @@ During search, if you have matched `j` characters and then get a mismatch:
 
 Instead of:
 
-`textIndex = textIndex - j + 1  j = 0` 
+```text
+textIndex = textIndex - j + 1
+
+j = 0 
+```
 
 You do:
 
-`j = kmpBorders[j - 1]` 
+```text
+j = kmpBorders[j - 1] 
+```
 
 And continue from the already-known partial match.
 
