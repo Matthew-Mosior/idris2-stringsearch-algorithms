@@ -22,7 +22,7 @@ String-searching algorithms are used in many real-world applications, such as:
 ### Boyer-Moore algorithm
 
 The [Boyer-Moore](https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm) algorithm,
-developed in 1977 by Robert S. Boyer and J. Strother Moore, is considered the standard by which all other string-searching algorithms are bench-marked.
+developed in 1977 by [Robert S. Boyer](https://en.wikipedia.org/wiki/Robert_S._Boyer) and [J. Strother Moore](https://en.wikipedia.org/wiki/J_Strother_Moore), is considered the standard by which all other string-searching algorithms are bench-marked.
 The key idea of this algorithm is that it pre-computes the shifts of bad-characters and good-suffixes.
 
 #### Bad Character Rule
