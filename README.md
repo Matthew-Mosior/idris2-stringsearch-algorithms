@@ -253,7 +253,7 @@ suffixLengths bs t =
                                     in assert_total (noSuffix (i - 1) bs arr t)
 ```
 
-`suffixLengths` helps determine the following:
+`suffixLengths` computes the following:
 
 For each position i in the pattern, `suffixLengths[i]` tells you how long a suffix of `P[0..i]` matches the suffix of the full pattern.
 
