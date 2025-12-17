@@ -142,9 +142,9 @@ matchDFA pat target {prfpat} {prftarget} t =
 |||
 ||| Example:
 |||
-||| | pat   | target      |
-||| | ----- | ----------- |
-||| | "ABC" | "ABCABCABC" |
+||| | pat      | target      |
+||| | -------- | ----------- |
+||| | "ABCABC" | "ABCABCABC" |
 |||
 ||| | Start | Substring       | Match? | Explanation                                                      |
 ||| | ----- | --------------- | ------ | ---------------------------------------------------------------- |
