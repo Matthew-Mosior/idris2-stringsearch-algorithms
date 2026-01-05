@@ -716,3 +716,9 @@ m <-> length of pattern being searched for
 n <-> length of text being searched across
 k <-> |Σ| is the size of the alphabet
 ```
+
+## Inter-language Benchmarks
+
+| Benchmark                                         | Versus  | Link                                                                                                |
+| ------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| String-searching over bytes streaming from a file | Haskell | [link](https://github.com/Matthew-Mosior/streaming-benchmarks/blob/main/string-searching/README.md) |
