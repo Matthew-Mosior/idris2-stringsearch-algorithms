@@ -719,6 +719,6 @@ k <-> |Σ| is the size of the alphabet
 
 ## Inter-language Benchmarks
 
-| Benchmark                                         | Versus  | Link                                                                                                |
-| ------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------- |
-| String-searching over bytes streaming from a file | Haskell | [link](https://github.com/Matthew-Mosior/streaming-benchmarks/blob/main/string-searching/README.md) |
+| Benchmark              | Versus  | Link                                                                                                |
+| ---------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| Streaming from a file  | Haskell | [link](https://github.com/Matthew-Mosior/streaming-benchmarks/blob/main/string-searching/README.md) |
