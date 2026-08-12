@@ -31,8 +31,12 @@ prop_kmpBorders = property1 $
       let pat             := Prelude.unpack "ANPANMAN"
           patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
           kmpborders  # t := kmpBorders patbs t
-          kmpborders' # t := Data.Array.Core.freeze kmpborders t
-        in Prelude.Interfaces.toList kmpborders' # t ) === [0,0,0,0,1,2,0,1,2]
+        in case kmpborders of
+             Nothing          =>
+               (the (List Nat) []) # t
+             Just kmpborders' =>
+               let kmpborders'' # t := Data.Array.Core.freeze kmpborders' t
+                 in Prelude.Interfaces.toList kmpborders'' # t ) === [0,0,0,0,1,2,0,1,2]
 
 ||| prop_kmpBorders': "ABCABC"
 |||  
@@ -52,8 +56,12 @@ prop_kmpBorders' = property1 $
       let pat             := Prelude.unpack "ABCABC"
           patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
           kmpborders  # t := kmpBorders patbs t
-          kmpborders' # t := Data.Array.Core.freeze kmpborders t
-        in Prelude.Interfaces.toList kmpborders' # t ) === [0,0,0,0,1,2,3]
+        in case kmpborders of
+             Nothing          =>
+               (the (List Nat) []) # t
+             Just kmpborders' =>
+               let kmpborders'' # t := Data.Array.Core.freeze kmpborders' t
+                 in Prelude.Interfaces.toList kmpborders'' # t ) === [0,0,0,0,1,2,3]
 
 ||| prop_automaton : "ANPANMAN"
 |||
@@ -80,24 +88,28 @@ prop_automaton = property1 $
       let pat             := Prelude.unpack "ANPANMAN"
           patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
           automaton'  # t := automaton patbs t
-          automaton'' # t := Data.Array.Core.freeze automaton' t
-          vect            := toVectWithIndex automaton''
-          list            := Prelude.Interfaces.toList vect
-        in filter (\(_, b) => b /= (the Nat 0)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, 1)
-                                                                                                 , (321, 1)
-                                                                                                 , (334, 2)
-                                                                                                 , (577, 1)
-                                                                                                 , (592, 3)
-                                                                                                 , (833, 4)
-                                                                                                 , (1089, 1)
-                                                                                                 , (1102, 5)
-                                                                                                 , (1345, 1)
-                                                                                                 , (1357, 6)
-                                                                                                 , (1601, 7)
-                                                                                                 , (1857, 1)
-                                                                                                 , (1870, 8)
-                                                                                                 , (2113, 1)
-                                                                                                 ]                  
+        in case automaton' of
+             Nothing          =>
+               (the (List (Nat, Nat)) []) # t
+             Just automaton'' =>
+               let automaton''' # t := Data.Array.Core.freeze automaton'' t
+                   vect             := toVectWithIndex automaton'''
+                   list             := Prelude.Interfaces.toList vect
+                 in filter (\(_, b) => b /= (the Nat 0)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, 1)
+                                                                                                          , (321, 1)
+                                                                                                          , (334, 2)
+                                                                                                          , (577, 1)
+                                                                                                          , (592, 3)
+                                                                                                          , (833, 4)
+                                                                                                          , (1089, 1)
+                                                                                                          , (1102, 5)
+                                                                                                          , (1345, 1)
+                                                                                                          , (1357, 6)
+                                                                                                          , (1601, 7)
+                                                                                                          , (1857, 1)
+                                                                                                          , (1870, 8)
+                                                                                                          , (2113, 1)
+                                                                                                          ]                  
 
 ||| prop_automaton' : "ABCABC"
 |||
@@ -121,22 +133,25 @@ prop_automaton' = property1 $
       let pat             := Prelude.unpack "ABCABC"
           patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
           automaton'  # t := automaton patbs t
-          automaton'' # t := Data.Array.Core.freeze automaton' t
-          vect            := toVectWithIndex automaton''
-          list            := Prelude.Interfaces.toList vect
-        in filter (\(_, b) => b /= (the Nat 0)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, 1)
-                                                                                                 , (321, 1)
-                                                                                                 , (322, 2)
-                                                                                                 , (577, 1)
-                                                                                                 , (579, 3)
-                                                                                                 , (833, 4)
-                                                                                                 , (1089, 1)
-                                                                                                 , (1090, 5)
-                                                                                                 , (1345, 1)
-                                                                                                 , (1347, 6)
-                                                                                                 , (1601, 1)
-                                                                                                 ]
-               
+        in case automaton' of
+             Nothing          =>
+               (the (List (Nat, Nat)) []) # t
+             Just automaton'' =>
+               let automaton''' # t := Data.Array.Core.freeze automaton'' t
+                   vect             := toVectWithIndex automaton'''
+                   list             := Prelude.Interfaces.toList vect
+                 in filter (\(_, b) => b /= (the Nat 0)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, 1)
+                                                                                                          , (321, 1)
+                                                                                                          , (322, 2)
+                                                                                                          , (577, 1)
+                                                                                                          , (579, 3)
+                                                                                                          , (833, 4)
+                                                                                                          , (1089, 1)
+                                                                                                          , (1090, 5)
+                                                                                                          , (1345, 1)
+                                                                                                          , (1347, 6)
+                                                                                                          , (1601, 1)
+                                                                                                          ]
 
 ||| prop_occurrences: "ANPANMAN"
 |||
@@ -157,14 +172,18 @@ prop_occurrences = property1 $
          Yes notnullprf =>
            ( run1 $ \t =>
                let occurrences'  # t := occurrences patbs {prf=notnullprf} t
-                   occurrences'' # t := Data.Array.Core.freeze occurrences' t
-                   vect              := toVectWithIndex occurrences''
-                   list              := Prelude.Interfaces.toList vect
-                 in filter (\(_, b) => b /= (the Int 1)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, -6)
-                                                                                                          , (77, -5)
-                                                                                                          , (78, -4)
-                                                                                                          , (80, -2)
-                                                                                                          ]
+                 in case occurrences' of
+                      Nothing            =>
+                        (the (List (Nat, Int)) []) # t
+                      Just occurrences'' =>
+                        let occurrences''' # t := Data.Array.Core.freeze occurrences'' t
+                            vect               := toVectWithIndex occurrences'''
+                            list               := Prelude.Interfaces.toList vect
+                          in filter (\(_, b) => b /= (the Int 1)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, -6)
+                                                                                                                   , (77, -5)
+                                                                                                                   , (78, -4)
+                                                                                                                   , (80, -2)
+                                                                                                                   ]
 
 ||| prop_occurrences': "ABCABC"
 |||
@@ -184,13 +203,17 @@ prop_occurrences' = property1 $
          Yes notnullprf =>
            ( run1 $ \t =>
                let occurrences'  # t := occurrences patbs {prf=notnullprf} t
-                   occurrences'' # t := Data.Array.Core.freeze occurrences' t
-                   vect              := toVectWithIndex occurrences''
-                   list              := Prelude.Interfaces.toList vect
-                 in filter (\(_, b) => b /= (the Int 1)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, -3)
-                                                                                                          , (66, -4)
-                                                                                                          , (67, -2)
-                                                                                                          ]
+                 in case occurrences' of
+                      Nothing            =>
+                        (the (List (Nat, Int)) []) # t
+                      Just occurrences'' =>
+                        let occurrences''' # t := Data.Array.Core.freeze occurrences'' t
+                            vect               := toVectWithIndex occurrences'''
+                            list               := Prelude.Interfaces.toList vect
+                          in filter (\(_, b) => b /= (the Int 1)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, -3)
+                                                                                                                   , (66, -4)
+                                                                                                                   , (67, -2)
+                                                                                                                   ]
 
 ||| prop_suffixLengths: "ANPANMAN"
 |||
@@ -216,9 +239,13 @@ prop_suffixLengths = property1 $
            assert_total $ idris_crash "pat is null"
          Yes notnullprf =>
            ( run1 $ \t =>
-               let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
-                   suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
-                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,2,0,0,2,0,0,8]
+               let suffixlengths # t := suffixLengths patbs {prf=notnullprf} t
+                 in case suffixlengths of
+                      Nothing             =>
+                        (the (List Int) []) # t
+                      Just suffixlengths' =>
+                        let suffixlengths'' # t := Data.Array.Core.freeze suffixlengths' t
+                          in Prelude.Interfaces.toList suffixlengths'' # t ) === [0,2,0,0,2,0,0,8]
 
 ||| prop_suffixLengths': "ABCABC"
 |||
@@ -243,8 +270,12 @@ prop_suffixLengths' = property1 $
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
-                   suffixlengths' # t := Data.Array.Core.freeze suffixlengths t
-                 in Prelude.Interfaces.toList suffixlengths' # t ) === [0,0,3,0,0,6]
+                 in case suffixlengths of
+                      Nothing             =>
+                        (the (List Int) []) # t
+                      Just suffixlengths' =>
+                        let suffixlengths'' # t := Data.Array.Core.freeze suffixlengths' t
+                          in Prelude.Interfaces.toList suffixlengths'' # t ) === [0,0,3,0,0,6]
 
 ||| prop_suffixShifts: "ANPANMAN"
 ||| | idx | suff[idx] | target = patEnd - suff[idx] | value = patEnd - idx |    ar after write |
@@ -267,8 +298,12 @@ prop_suffixShifts = property1 $
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
-                   suffixshifts' # t := Data.Array.Core.freeze suffixshifts t
-                 in Prelude.Interfaces.toList suffixshifts' # t ) === [6,6,6,6,6,3,8,1]
+                 in case suffixshifts of
+                      Nothing             =>
+                        (the (List Int) []) # t
+                      Just suffixshifts' =>
+                        let suffixshifts'' # t := Data.Array.Core.freeze suffixshifts' t
+                          in Prelude.Interfaces.toList suffixshifts'' # t ) === [6,6,6,6,6,3,8,1]
 
 ||| prop_suffixShifts': "ABCABC"
 |||
@@ -290,8 +325,12 @@ prop_suffixShifts' = property1 $
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
-                   suffixshifts' # t := Data.Array.Core.freeze suffixshifts t
-                 in Prelude.Interfaces.toList suffixshifts' # t ) === [3,3,3,6,6,1]
+                 in case suffixshifts of
+                      Nothing             =>
+                        (the (List Int) []) # t
+                      Just suffixshifts' =>
+                        let suffixshifts'' # t := Data.Array.Core.freeze suffixshifts' t
+                          in Prelude.Interfaces.toList suffixshifts'' # t ) === [3,3,3,6,6,1]
 
 export
 props_ANPANMAN : Group

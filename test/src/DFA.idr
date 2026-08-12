@@ -20,7 +20,7 @@ import Data.Vect
 ||| index  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 ||| match  | Y | N | N | Y | N | N | Y | N
 |||
-||| matchDFA "AN" "ANPANMAN" => [0, 3, 6]
+||| matchDFA "AN" "ANPANMAN" => Just [0, 3, 6]
 |||
 prop_matchDFA : Property
 prop_matchDFA = property1 $
@@ -37,7 +37,7 @@ prop_matchDFA = property1 $
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
                     ( run1 $ \t =>
-                        matchDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3,6]
+                        matchDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === Just [0,3,6]
 
 ||| prop_indicesDFA:
 |||
@@ -48,7 +48,7 @@ prop_matchDFA = property1 $
 ||| index  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 ||| match  | Y | N | N | Y | N | N | N | N | N
 |||
-||| indicesDFA "ABCABC" "ABCABCABC" => [0, 3]
+||| indicesDFA "ABCABC" "ABCABCABC" => Just [0, 3]
 |||
 prop_indicesDFA : Property
 prop_indicesDFA = property1 $
@@ -65,11 +65,11 @@ prop_indicesDFA = property1 $
                     assert_total $ idris_crash "target is null"
                   Yes targetprf =>
                     ( run1 $ \t =>
-                        indicesDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === [0,3]
+                        indicesDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} t) === Just [0,3]
 
 ||| prop_breakDFA:
 |||
-||| breakDFA "ABCABC" "ABCABCABC" => (empty, ABCABCABC)
+||| breakDFA "ABCABC" "ABCABCABC" => Just (empty, ABCABCABC)
 |||
 prop_breakDFA : Property
 prop_breakDFA = property1 $
@@ -90,13 +90,15 @@ prop_breakDFA = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            breakDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Data.ByteString.empty
-                                                                                                                       , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                            breakDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Just
+                                                                                                                         ( Data.ByteString.empty
+                                                                                                                         , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                                                                                                                         )
                                                                                                                        )
 
 ||| prop_breakAfterDFA:
 |||
-||| breakAfterDFA "ABCABC" "ABCABCABC" => (ABCABC, ABC)
+||| breakAfterDFA "ABCABC" "ABCABCABC" => Just (ABCABC, ABC)
 |||
 prop_breakAfterDFA : Property
 prop_breakAfterDFA = property1 $
@@ -117,14 +119,16 @@ prop_breakAfterDFA = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            breakAfterDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
-                                                                                                                            , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                            breakAfterDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Just
+                                                                                                                              ( Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
+                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                              )
                                                                                                                             )
 
 
 ||| prop_splitKeepFrontDFA:
 |||
-||| splitKeepFrontDFA "ABCABC" "ABCABCABC" => [ABCABCABC]
+||| splitKeepFrontDFA "ABCABC" "ABCABCABC" => Just [ABCABCABC]
 |||
 prop_splitKeepFrontDFA : Property
 prop_splitKeepFrontDFA = property1 $
@@ -145,12 +149,12 @@ prop_splitKeepFrontDFA = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            splitKeepFrontDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
-                                                                                                                                ]
+                            splitKeepFrontDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                                                                                                                                     ]
 
 ||| prop_splitKeepEndDFA:
 |||
-||| splitKeepEndDFA "ABCABC" "ABCABCABC" => [ABCABC, ABC]
+||| splitKeepEndDFA "ABCABC" "ABCABCABC" => Just [ABCABC, ABC]
 |||
 prop_splitKeepEndDFA : Property
 prop_splitKeepEndDFA = property1 $
@@ -171,13 +175,13 @@ prop_splitKeepEndDFA = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            splitKeepEndDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
-                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
-                                                                                                                              ]
+                            splitKeepEndDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
+                                                                                                                                   , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                                   ]
 
 ||| prop_splitDropDFA:
 |||
-||| splitDropDFA "ABCABC" "ABCABCABC" => [empty, ABC]
+||| splitDropDFA "ABCABC" "ABCABCABC" => Just [empty, ABC]
 |||
 prop_splitDropDFA : Property
 prop_splitDropDFA = property1 $
@@ -198,13 +202,13 @@ prop_splitDropDFA = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            splitDropDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.empty
-                                                                                                                           , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
-                                                                                                                           ]
+                            splitDropDFA patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.empty
+                                                                                                                                , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                                ]
 
 ||| prop_replaceDFA:
 |||
-||| replaceDFA "AB" "BA" ABCABCABC" => [BA, C, BA, C , BA, C]
+||| replaceDFA "AB" "BA" ABCABCABC" => Just [BA, C, BA, C , BA, C]
 |||
 prop_replaceDFA : Property
 prop_replaceDFA = property1 $
@@ -227,13 +231,13 @@ prop_replaceDFA = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            replaceDFA patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
-                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
-                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
-                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
-                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
-                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
-                                                                                                                               ]
+                            replaceDFA patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                                    , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                                    , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                                    , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                                    , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                                    , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                                    ]
 
 export
 props : Group
