@@ -20,7 +20,7 @@ import Data.Vect
 ||| index  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 ||| match  | Y | N | N | Y | N | N | Y | N
 |||
-||| matchBM "AN" "ANPANMAN" => [0, 3, 6]
+||| matchBM "AN" "ANPANMAN" => Just [0, 3, 6]
 |||
 prop_matchBM : Property
 prop_matchBM = property1 $
@@ -41,7 +41,7 @@ prop_matchBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            matchBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [0,3,6]
+                            matchBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [0,3,6]
 
 ||| prop_indicesBM:
 |||
@@ -52,7 +52,7 @@ prop_matchBM = property1 $
 ||| index  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 ||| match  | Y | N | N | Y | N | N | N | N | N
 |||
-||| indicesBM "ABCABC" "ABCABCABC" => [0, 3]
+||| indicesBM "ABCABC" "ABCABCABC" => Just [0, 3]
 |||
 prop_indicesBM : Property
 prop_indicesBM = property1 $
@@ -73,11 +73,11 @@ prop_indicesBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            indicesBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [0,3]
+                            indicesBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [0,3]
 
 ||| prop_breakBM:
 |||
-||| breakBM "ABCABC" "ABCABCABC" => (empty, ABCABCABC)
+||| breakBM "ABCABC" "ABCABCABC" => Just (empty, ABCABCABC)
 |||
 prop_breakBM : Property
 prop_breakBM = property1 $
@@ -98,13 +98,15 @@ prop_breakBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            breakBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Data.ByteString.empty
-                                                                                                                      , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                            breakBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Just
+                                                                                                                        ( Data.ByteString.empty
+                                                                                                                        , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                                                                                                                        )
                                                                                                                       )
 
 ||| prop_breakAfterBM:
 |||
-||| breakAfterBM "ABCABC" "ABCABCABC" => (ABCABC, ABC)
+||| breakAfterBM "ABCABC" "ABCABCABC" => Just (ABCABC, ABC)
 |||
 prop_breakAfterBM : Property
 prop_breakAfterBM = property1 $
@@ -125,14 +127,16 @@ prop_breakAfterBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            breakAfterBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
-                                                                                                                           , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                            breakAfterBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Just
+                                                                                                                             ( Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
+                                                                                                                             , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                             )
                                                                                                                            )
 
 
 ||| prop_splitKeepFrontBM:
 |||
-||| splitKeepFrontBM "ABCABC" "ABCABCABC" => [ABCABCABC]
+||| splitKeepFrontBM "ABCABC" "ABCABCABC" => Just [ABCABCABC]
 |||
 prop_splitKeepFrontBM : Property
 prop_splitKeepFrontBM = property1 $
@@ -153,12 +157,12 @@ prop_splitKeepFrontBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            splitKeepFrontBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
-                                                                                                                               ]
+                            splitKeepFrontBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
+                                                                                                                                    ]
 
 ||| prop_splitKeepEndBM:
 |||
-||| splitKeepEndBM "ABCABC" "ABCABCABC" => [ABCABC, ABC]
+||| splitKeepEndBM "ABCABC" "ABCABCABC" => Just [ABCABC, ABC]
 |||
 prop_splitKeepEndBM : Property
 prop_splitKeepEndBM = property1 $
@@ -179,13 +183,13 @@ prop_splitKeepEndBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            splitKeepEndBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
-                                                                                                                             , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
-                                                                                                                             ]
+                            splitKeepEndBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
+                                                                                                                                  , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                                  ]
 
 ||| prop_splitDropBM:
 |||
-||| splitDropBM "ABCABC" "ABCABCABC" => [empty, ABC]
+||| splitDropBM "ABCABC" "ABCABCABC" => Just [empty, ABC]
 |||
 prop_splitDropBM : Property
 prop_splitDropBM = property1 $
@@ -206,13 +210,13 @@ prop_splitDropBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            splitDropBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.empty
-                                                                                                                          , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
-                                                                                                                          ]
+                            splitDropBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.empty
+                                                                                                                               , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABC")
+                                                                                                                               ]
 
 ||| prop_replaceBM:
 |||
-||| replaceBM "AB" "BA" ABCABCABC" => [BA, C, BA, C, BA, C]
+||| replaceBM "AB" "BA" ABCABCABC" => Just [BA, C, BA, C, BA, C]
 |||
 prop_replaceBM : Property
 prop_replaceBM = property1 $
@@ -235,13 +239,13 @@ prop_replaceBM = property1 $
                         assert_total $ idris_crash "the target is shorter than the pattern"
                       Yes lengthprf =>
                         ( run1 $ \t =>
-                            replaceBM patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
-                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
-                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
-                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
-                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
-                                                                                                                              , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
-                                                                                                                              ]
+                            replaceBM patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                                   , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                                   , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                                   , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                                   , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
+                                                                                                                                   , Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "C")
+                                                                                                                                   ]
 export
 props : Group
 props = MkGroup "BoyerMoore"

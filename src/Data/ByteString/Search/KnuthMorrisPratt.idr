@@ -17,15 +17,24 @@ import Data.So
 
 ||| Returns a list of starting positions of a pattern `ByteString`
 ||| (0-based) across the list of target `ByteString`s.
+|||
 private
 matcher :  Bool
         -> ByteString
         -> List ByteString
-        -> F1 s (List Nat)
+        -> F1 s (Maybe (List Nat))
 matcher overlap pat chunks t =
-  let bords     # t := kmpBorders pat t
-      searcher' # t := searcher Z Z pat chunks Lin bords overlap t
-    in (searcher' <>> []) # t
+  let bords # t := kmpBorders pat t
+    in case bords of
+      Nothing     =>
+        Nothing # t
+      Just bords' =>
+        let searcher' # t := searcher Z Z pat chunks Lin bords' overlap t
+          in case searcher' of
+               Nothing         =>
+                 Nothing # t
+               Just searcher'' =>
+                 Just (searcher'' <>> []) # t
   where
     mutual
       findMatch :  (prior : Nat)
@@ -36,9 +45,9 @@ matcher overlap pat chunks t =
                 -> (final : SnocList Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
-                -> F1 s (SnocList Nat)
+                -> F1 s (Maybe (SnocList Nat))
       findMatch _     _    _    _   []               final _     _       t =
-        final # t
+        Just final # t
       findMatch prior pati stri pat strs@(str::rest) final bords overlap t =
         let patlen := length pat
           in case pati == patlen of
@@ -47,7 +56,7 @@ matcher overlap pat chunks t =
                    True  =>
                      case tryNatToFin patlen of
                        Nothing      =>
-                         (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
+                         Nothing # t
                        Just patlen' =>
                          let final'  := minus (plus prior stri) patlen
                              ami # t := get bords patlen' t
@@ -71,12 +80,12 @@ matcher overlap pat chunks t =
                           let pati' := index pati pat
                             in case pati' of
                                  Nothing     =>
-                                   (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
+                                   Nothing # t
                                  Just pati'' =>
                                    let stri' := index stri str
                                      in case stri' of
                                           Nothing     =>
-                                            (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't index into ByteString") # t
+                                            Nothing # t
                                           Just stri'' =>
                                             case stri'' == pati'' of
                                               True  =>
@@ -84,7 +93,7 @@ matcher overlap pat chunks t =
                                               False =>
                                                 case tryNatToFin pati of
                                                   Nothing      =>
-                                                    (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.findMatch: can't convert Nat to Fin") # t        
+                                                    Nothing # t
                                                   Just pati''' =>
                                                     let pati'''' # t := get bords pati''' t
                                                       in case pati'''' == Z of
@@ -99,9 +108,9 @@ matcher overlap pat chunks t =
                 -> (final : SnocList Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
                 -> (overlap : Bool)
-                -> F1 s (SnocList Nat)
+                -> F1 s (Maybe (SnocList Nat))
       checkHead _     _    _   []               final _     _       t =
-        final # t
+        Just final # t
       checkHead prior stri pat strs@(str::rest) final bords overlap t =
         let strlen := length str
           in case stri == strlen of
@@ -111,12 +120,12 @@ matcher overlap pat chunks t =
                  let stri' := index stri str
                    in case stri' of
                         Nothing     =>
-                          (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.checkHead: can't index into ByteString") # t
+                          Nothing # t
                         Just stri'' =>
                           let patzero := index Z pat
                             in case patzero of
                                  Nothing       =>
-                                   (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.matcher.checkHead: can't index into ByteString") # t
+                                   Nothing # t
                                  Just patzero' =>
                                    case stri'' == patzero' of
                                      True  =>
@@ -130,9 +139,9 @@ matcher overlap pat chunks t =
                -> (final : SnocList Nat)
                -> (bords : MArray s (S (length pat)) Nat)
                -> (overlap : Bool)
-               -> F1 s (SnocList Nat)
+               -> F1 s (Maybe (SnocList Nat))
       searcher _     _      _   []   final _     _       t =
-        final # t
+        Just final # t
       searcher prior Z      pat strs final bords overlap t =
         assert_total (checkHead prior Z pat strs final bords overlap t)
       searcher prior patpos pat strs final bords overlap t =
@@ -161,16 +170,21 @@ matcher overlap pat chunks t =
 ||| | 6     | ANPANM**"AN"** | Yes    | Final match found at index 6.                    |
 ||| 
 |||
-||| matchKMP "AN" "ANPANMAN" => [0, 3, 6]
+||| matchKMP "AN" "ANPANMAN" => Just [0, 3, 6]
 |||
 export
 matchKMP :  (pat : ByteString)
          -> (target : ByteString)
          -> {0 prfpat : So (not $ null pat)}
          -> {0 prftarget : So (not $ null target)}
-         -> F1 s (List Nat)
+         -> F1 s (Maybe (List Nat))
 matchKMP pat target {prfpat} {prftarget} t =
-  matcher False pat [target] t
+  let matcher' # t := matcher False pat [target] t
+    in case matcher' of
+         Nothing        =>
+           Nothing # t
+         Just matcher'' =>
+           Just matcher'' # t
 
 ||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
 |||
@@ -192,16 +206,21 @@ matchKMP pat target {prfpat} {prftarget} t =
 ||| | 2     | AB**"CABCAA"**C | No     | Shift by suffix table → mismatch on 2nd char.                    |
 ||| | 3     | ABC**"ABC"**    | Yes    | Overlapping match starting at index 3 (because `"ABC"` repeats). |
 ||| 
-||| indicesKMP "ABCABC" "ABCABCABC" => [0, 3]
+||| indicesKMP "ABCABC" "ABCABCABC" => Just [0, 3]
 |||
 export
 indicesKMP :  (pat : ByteString)
            -> (target : ByteString)
            -> {0 prfpat : So (not $ null pat)}
            -> {0 prftarget : So (not $ null target)}
-           -> F1 s (List Nat)
+           -> F1 s (Maybe (List Nat))
 indicesKMP pat target {prfpat} {prftarget} t =
-  matcher True pat [target] t
+  let matcher' # t := matcher True pat [target] t
+    in case matcher' of
+         Nothing        =>
+           Nothing # t
+         Just matcher'' =>
+           Just matcher'' # t
 
 ||| Splits a ByteString at the first match of pat in target.
 |||
@@ -220,19 +239,23 @@ breakKMP :  (pat : ByteString)
          -> {0 prfpat : So (not $ null pat)}
          -> {0 prftarget : So (not $ null target)}
          -> {0 prflength : So ((length target) >= (length pat))}
-         -> F1 s (ByteString, ByteString)
+         -> F1 s (Maybe (ByteString, ByteString))
 breakKMP pat target {prfpat} {prftarget} {prflength} t =
    let matcher' # t := matcher False pat [target] t
      in case matcher' of
-          []       =>
-            (target, empty) # t
-          (i :: _) =>
-            let target' := splitAt (cast {to=Nat} i) target
-              in case target' of
-                   Nothing       =>
-                     (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.breakKMP: can't split ByteString") # t
-                   Just target'' =>
-                     target'' # t
+          Nothing        =>
+            Nothing # t
+          Just matcher'' =>
+            case matcher'' of
+              []       =>
+                Just (target, empty) # t
+              (i :: _) =>
+                let target' := splitAt (cast {to=Nat} i) target
+                  in case target' of
+                       Nothing       =>
+                         Nothing # t
+                       Just target'' =>
+                         Just target'' # t
 
 ||| Splits a ByteString after the first match of pat in target.
 |||
@@ -247,24 +270,28 @@ breakKMP pat target {prfpat} {prftarget} {prflength} t =
 ||| suffix is empty.
 |||
 export
-breakAfterKMP : (pat : ByteString)
+breakAfterKMP :  (pat : ByteString)
               -> (target : ByteString)
               -> {0 prfpat : So (not $ null pat)}
               -> {0 prftarget : So (not $ null target)}
               -> {0 prflength : So ((length target) >= (length pat))}
-              -> F1 s (ByteString, ByteString)
+              -> F1 s (Maybe (ByteString, ByteString))
 breakAfterKMP pat target {prfpat} {prftarget} {prflength} t =
    let matcher' # t := matcher False pat [target] t
      in case matcher' of
-          []       =>
-            (target, empty) # t
-          (i :: _) =>
-            let target' := splitAt (plus (cast {to=Nat} i) (length pat)) target
-              in case target' of
-                   Nothing    =>
-                     (assert_total $ idris_crash "Data.ByteString.Search.KnuthMorrisPratt.breakAfterKMP: can't split ByteString") # t
-                   Just target'' =>
-                     target'' # t
+          Nothing        =>
+            Nothing # t
+          Just matcher'' =>
+            case matcher'' of
+              []       =>
+                Just (target, empty) # t
+              (i :: _) =>
+                let target' := splitAt (plus (cast {to=Nat} i) (length pat)) target
+                  in case target' of
+                       Nothing       =>
+                         Nothing # t
+                       Just target'' =>
+                         Just target'' # t
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of target, keeping the matching prefix of pat
@@ -286,42 +313,54 @@ splitKeepFrontKMP :  (pat : ByteString)
                   -> {0 prfpat : So (not $ null pat)}
                   -> {0 prftarget : So (not $ null target)}
                   -> {0 prflength : So ((length target) >= (length pat))}
-                  -> F1 s (List ByteString)
+                  -> F1 s (Maybe (List ByteString))
 splitKeepFrontKMP pat target {prfpat} {prftarget} {prflength} t =
   let splitter' # t := splitter pat target Lin t
-    in (splitter' <>> []) # t
+    in case splitter' of
+         Nothing         =>
+           Nothing # t
+         Just splitter'' =>
+           Just (splitter'' <>> []) # t
   where
     psSplitter :  (pat : ByteString)
                -> (target : ByteString)
                -> (final : SnocList ByteString)
-               -> F1 s (SnocList ByteString)
+               -> F1 s (Maybe (SnocList ByteString))
     psSplitter pat target final t =
       let matcher' # t := matcher False pat [(drop (length pat) target)] t
         in case matcher' of
-             []       =>
-               let final' := final :< target
-                 in final' # t
-             (i :: _) =>
-               let length' := plus (cast {to=Nat} i) (length pat)
-                   final'  := final :< (take length' target)
-                 in assert_total (psSplitter pat (drop length' target) final' t)
+             Nothing        =>
+               Nothing # t
+             Just matcher'' =>
+               case matcher'' of
+                 []       =>
+                   let final' := final :< target
+                     in Just final' # t
+                 (i :: _) =>
+                   let length' := plus (cast {to=Nat} i) (length pat)
+                       final'  := final :< (take length' target)
+                     in assert_total (psSplitter pat (drop length' target) final' t)
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
-             -> F1 s (SnocList ByteString)
+             -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
       let matcher' # t := matcher False pat [target] t
         in case matcher' of
-             []       =>
-               let final' := final :< target
-                 in final' # t
-             (i :: _) =>
-               case i == 0 of
-                 True  =>
-                   assert_total (psSplitter pat target final t)
-                 False =>
-                   let final' := final :< (take (cast {to=Nat} i) target)
-                     in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t)
+             Nothing        =>
+               Nothing # t
+             Just matcher'' =>
+               case matcher'' of
+                 []       =>
+                   let final' := final :< target
+                     in Just final' # t
+                 (i :: _) =>
+                   case i == 0 of
+                     True  =>
+                       assert_total (psSplitter pat target final t)
+                     False =>
+                       let final' := final :< (take (cast {to=Nat} i) target)
+                         in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t)
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of pat inside target, keeping the matching
@@ -349,25 +388,33 @@ splitKeepEndKMP :  (pat : ByteString)
                 -> {0 prfpat : So (not $ null pat)}
                 -> {0 prftarget : So (not $ null target)}
                 -> {0 prflength : So ((length target) >= (length pat))}
-                -> F1 s (List ByteString)
+                -> F1 s (Maybe (List ByteString))
 splitKeepEndKMP pat target {prfpat} {prftarget} {prflength} t =
   let splitter' # t := splitter pat target Lin t
-    in (splitter' <>> []) # t
+    in case splitter' of
+         Nothing         =>
+           Nothing # t
+         Just splitter'' =>
+           Just (splitter'' <>> []) # t
   where
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
-             -> F1 s (SnocList ByteString)
+             -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
       let matcher' # t := matcher False pat [target] t
         in case matcher' of
-             []       =>
-               let final' := final :< target
-                 in final' # t
-             (i :: _) =>
-               let length' := plus (cast {to=Nat} i) (length pat)
-                   final'  := final :< (take length' target)
-                 in assert_total (splitter pat (drop length' target) final' t)
+             Nothing        =>
+               Nothing # t
+             Just matcher'' =>
+               case matcher'' of
+                 []       =>
+                   let final' := final :< target
+                     in Just final' # t
+                 (i :: _) =>
+                   let length' := plus (cast {to=Nat} i) (length pat)
+                       final'  := final :< (take length' target)
+                     in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of pat inside target, dropping each matched
@@ -397,25 +444,33 @@ splitDropKMP :  (pat : ByteString)
              -> {0 prfpat : So (not $ null pat)}
              -> {0 prftarget : So (not $ null target)}
              -> {0 prflength : So ((length target) >= (length pat))}
-             -> F1 s (List ByteString)
+             -> F1 s (Maybe (List ByteString))
 splitDropKMP pat target {prfpat} {prftarget} {prflength} t =
   let splitter' # t := splitter pat target Lin t
-    in (splitter' <>> []) # t
+    in case splitter' of
+         Nothing         =>
+           Nothing # t
+         Just splitter'' =>
+           Just (splitter'' <>> []) # t
   where
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
-             -> F1 s (SnocList ByteString)
+             -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
       let matcher' # t := matcher False pat [target] t
         in case matcher' of
-             []       =>
-               let final' := final :< target
-                 in final' # t
-             (i :: _) =>
-               let length' := plus (cast {to=Nat} i) (length pat)
-                   final'  := final :< (take (cast {to=Nat} i) target)
-                 in assert_total (splitter pat (drop length' target) final' t)
+             Nothing        =>
+               Nothing # t
+             Just matcher'' =>
+               case matcher'' of
+                 []       =>
+                   let final' := final :< target
+                     in Just final' # t
+                 (i :: _) =>
+                   let length' := plus (cast {to=Nat} i) (length pat)
+                       final'  := final :< (take (cast {to=Nat} i) target)
+                     in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Replaces all non-overlapping occurrences of a pattern in a ByteString
 ||| using the Knuth-Morris-Pratt matcher.
@@ -444,38 +499,46 @@ replaceKMP :  (pat : ByteString)
            -> {0 prfpat : So (not $ null pat)}
            -> {0 prftarget : So (not $ null target)}
            -> {0 prflength : So ((length target) >= (length pat))}
-           -> F1 s (List ByteString)
+           -> F1 s (Maybe (List ByteString))
 replaceKMP pat sub target {prfpat} {prftarget} {prflength} t =
   let replacer' # t := replacer pat sub target Lin t
-    in (replacer' <>> []) # t
+    in case replacer' of
+         Nothing         =>
+           Nothing # t
+         Just replacer'' =>
+           Just (replacer'' <>> []) # t
   where
     replacer :  (pat : ByteString)
              -> (sub : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
-             -> F1 s (SnocList ByteString)
+             -> F1 s (Maybe (SnocList ByteString))
     replacer pat sub target final t =
       let matcher' # t := matcher False pat [target] t
         in case matcher' of
-             []       =>
-               let final' := final :< target
-                 in final' # t
-             (i :: _) =>
-               case i of
-                 0 =>
-                   case null sub of
-                     True  =>
-                       assert_total (replacer pat sub (drop (length pat) target) final t)
-                     False =>
-                       let final' := final :< sub
-                         in assert_total (replacer pat sub (drop (length pat) target) final') t
-                 _ =>
-                   case null sub of
-                     True  =>
-                       let length' := plus (cast {to=Nat} i) (length pat)
-                           final'  := final :< (take (cast {to=Nat} i) target)
-                         in assert_total (replacer pat sub (drop length' target) final' t)
-                     False =>
-                       let length' := plus (cast {to=Nat} i) (length pat)
-                           final'  := final :< (take (cast {to=Nat} i) target) :< sub
-                         in assert_total (replacer pat sub (drop length' target) final' t)
+             Nothing        =>
+               Nothing # t
+             Just matcher'' =>
+               case matcher'' of
+                 []       =>
+                   let final' := final :< target
+                     in Just final' # t
+                 (i :: _) =>
+                   case i of
+                     0 =>
+                       case null sub of
+                         True  =>
+                           assert_total (replacer pat sub (drop (length pat) target) final t)
+                         False =>
+                           let final' := final :< sub
+                             in assert_total (replacer pat sub (drop (length pat) target) final') t
+                     _ =>
+                       case null sub of
+                         True  =>
+                           let length' := plus (cast {to=Nat} i) (length pat)
+                               final'  := final :< (take (cast {to=Nat} i) target)
+                             in assert_total (replacer pat sub (drop length' target) final' t)
+                         False =>
+                           let length' := plus (cast {to=Nat} i) (length pat)
+                               final'  := final :< (take (cast {to=Nat} i) target) :< sub
+                             in assert_total (replacer pat sub (drop length' target) final' t)

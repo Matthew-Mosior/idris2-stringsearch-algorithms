@@ -39,62 +39,72 @@ import Data.So
 |||
 export
 kmpBorders :  (bs : ByteString)
-           -> F1 s (MArray s (S (length bs)) Nat)
+           -> F1 s (Maybe (MArray s (S (length bs)) Nat))
 kmpBorders bs t =
-  let arr # t := unsafeMArray1 (S (length bs)) t
-      ()  # t := go (length bs) bs arr t
-    in arr # t
+  let arr  # t := unsafeMArray1 (S (length bs)) t
+      arr' # t := go (length bs) bs arr t
+    in arr' # t
   where
     dec :  (i : Nat)
         -> (j : Nat)
         -> (bs : ByteString)
         -> (arr : MArray s (S (length bs)) Nat)
-        -> F1 s Nat
+        -> F1 s (Maybe Nat)
     dec _ Z _  _   t =
-      Z # t
+      Just Z # t
     dec i j bs arr t =
       case tryNatToFin j of
         Nothing   =>
-          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.dec: can't convert Nat to Fin") # t
+          Nothing # t
         Just j' =>
           let j'' # t := get arr j' t
               wj      := index j'' bs
             in case wj of
                  Nothing  =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.dec: can't index into ByteString") # t
+                   Nothing # t
                  Just wj' =>
                    let wi := index (minus i 1) bs
                      in case wi of
                           Nothing  =>
-                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.dec: can't index into ByteString") # t
+                            Nothing # t
                           Just wi' =>
                             case (cast {to=Nat} wi') == (cast {to=Nat} wj') of
                               True  =>
-                                plus j'' 1 # t
+                                Just (plus j'' 1) # t
                               False =>
                                 case j'' == 0 of
                                   True  =>
-                                    Z # t
+                                    Just Z # t
                                   False =>
                                     assert_total (dec i j'' bs arr t)
     go :  (i : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (S (length bs)) Nat)
-       -> F1' s
+       -> F1 s (Maybe (MArray s (S (length bs)) Nat))
     go Z     _ arr t =
       case tryNatToFin 0 of
         Nothing   =>
-          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't convert Nat to Fin") # t
+          Nothing # t
         Just zero =>
-          set arr zero 0 t
+          let () # t := set arr zero 0 t
+            in Just arr # t
     go (S i) bs arr t =
-      let () # t := assert_total (go i bs arr t)
-        in case tryNatToFin (S i) of
+      let i' # t := assert_total (go i bs arr t)
+        in case i' of
              Nothing =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.kmpBorders.go: can't convert Nat to Fin") # t
-             Just i' =>
-               let j # t := dec (S i) i bs arr t
-                 in set arr i' j t
+               Nothing # t
+             Just _  =>
+               case tryNatToFin (S i) of
+                 Nothing =>
+                   Nothing # t
+                 Just i' =>
+                   let j # t := dec (S i) i bs arr t
+                     in case j of
+                          Nothing =>
+                            Nothing # t
+                          Just j' =>
+                            let () # t := set arr i' j' t
+                              in Just arr # t
 
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||
@@ -145,108 +155,154 @@ kmpBorders bs t =
 |||
 export
 automaton :  (bs : ByteString)
-          -> F1 s (MArray s (mult (plus (length bs) 1) 256) Nat)
+          -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
 automaton bs t =
   let arr  # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
       bord # t := kmpBorders bs t
-      ()   # t := go Z bs arr bord t
-    in arr # t
+    in case bord of
+         Nothing    =>
+           Nothing # t
+         Just bord' =>
+           let arr' # t := go Z bs arr bord' t
+             in case arr' of
+                  Nothing    =>
+                    Nothing # t
+                  Just arr'' =>
+                    Just arr'' # t
   where
     flattenIndex :  (st : Nat)
                  -> (byte : Nat)
                  -> (bs : ByteString)
                  -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-                 -> F1 s (Fin (mult (plus (length bs) 1) 256))
+                 -> F1 s (Maybe (Fin (mult (plus (length bs) 1) 256)))
     flattenIndex st byte bs arr t =
       let idx := plus (mult st 256) byte
         in case tryNatToFin idx of
              Nothing   =>
-               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.loop: can't convert Nat to Fin") # t
+               Nothing # t
              Just idx' =>
-               idx' # t
+               Just idx' # t
     loop :  (b : Nat)
          -> (cur : Nat)
          -> (patbyte : Maybe Bits8)
          -> (bordcur : Nat)
          -> (bs : ByteString)
          -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-         -> F1' s
+         -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
     loop Z     cur patbyte bordcur bs arr t =
       let idx # t := flattenIndex cur Z bs arr t
-        in case patbyte of
-             Nothing       =>
-               case cur == Z of
-                 True  =>
-                   set arr idx Z t
-                 False =>
-                   let fidx     # t := flattenIndex bordcur Z bs arr t
-                       bordcur' # t := get arr fidx t
-                     in set arr idx bordcur' t
-             Just patbyte' =>
-               case Z == (cast {to=Nat} patbyte') of
-                 True  =>
-                   set arr idx (S cur) t
-                 False =>
+        in case idx of
+             Nothing   =>
+               Nothing # t
+             Just idx' =>
+               case patbyte of
+                 Nothing       =>
                    case cur == Z of
                      True  =>
-                       set arr idx Z t
+                       let () # t := set arr idx' Z t
+                         in Just arr # t
                      False =>
-                       let fidx     # t := flattenIndex bordcur Z bs arr t
-                           bordcur' # t := get arr fidx t
-                         in set arr idx bordcur' t
+                       let fidx # t := flattenIndex bordcur Z bs arr t
+                         in case fidx of
+                              Nothing    =>
+                                Nothing # t
+                              Just fidx' =>
+                                let bordcur' # t := get arr fidx' t
+                                    ()       # t := set arr idx' bordcur' t
+                                  in Just arr # t
+                 Just patbyte' =>
+                   case Z == (cast {to=Nat} patbyte') of
+                     True  =>
+                       let () # t := set arr idx' (S cur) t
+                         in Just arr # t
+                     False =>
+                       case cur == Z of
+                         True  =>
+                           let () # t := set arr idx' Z t
+                             in Just arr # t
+                         False =>
+                           let fidx # t := flattenIndex bordcur Z bs arr t
+                             in case fidx of
+                                  Nothing    =>
+                                    Nothing # t
+                                  Just fidx' =>
+                                    let bordcur' # t := get arr fidx' t
+                                        ()       # t := set arr idx' bordcur' t
+                                      in Just arr # t
     loop (S b) cur patbyte bordcur bs arr t =
       let idx # t := flattenIndex cur (S b) bs arr t
-        in case patbyte of
-             Nothing       =>
-               case cur == Z of
-                 True  =>
-                   let () # t := set arr idx Z t
-                     in assert_total (loop b cur patbyte bordcur bs arr t)
-                 False =>
-                   let fidx     # t := flattenIndex bordcur (S b) bs arr t
-                       bordcur' # t := get arr fidx t
-                       ()       # t := set arr idx bordcur' t
-                     in assert_total (loop b cur patbyte bordcur' bs arr t)
-             Just patbyte' =>
-               case (S b) == (cast {to=Nat} patbyte') of
-                 True  =>
-                   let () # t := set arr idx (S cur) t
-                     in assert_total (loop b cur patbyte bordcur bs arr t)
-                 False =>
+        in case idx of
+             Nothing   =>
+               Nothing # t
+             Just idx' =>
+               case patbyte of
+                 Nothing       =>
                    case cur == Z of
                      True  =>
-                       let () # t := set arr idx Z t
+                       let () # t := set arr idx' Z t
                          in assert_total (loop b cur patbyte bordcur bs arr t)
                      False =>
-                       let fidx     # t := flattenIndex bordcur (S b) bs arr t
-                           bordcur' # t := get arr fidx t
-                           ()       # t := set arr idx bordcur' t
-                         in assert_total (loop b cur patbyte bordcur' bs arr t)
+                       let fidx # t := flattenIndex bordcur (S b) bs arr t
+                         in case fidx of
+                              Nothing    =>
+                                Nothing # t
+                              Just fidx' =>
+                                let bordcur' # t := get arr fidx' t
+                                    ()       # t := set arr idx' bordcur' t
+                                  in assert_total (loop b cur patbyte bordcur' bs arr t)
+                 Just patbyte' =>
+                   case (S b) == (cast {to=Nat} patbyte') of
+                     True  =>
+                       let () # t := set arr idx' (S cur) t
+                         in assert_total (loop b cur patbyte bordcur bs arr t)
+                     False =>
+                       case cur == Z of
+                         True  =>
+                           let () # t := set arr idx' Z t
+                             in assert_total (loop b cur patbyte bordcur bs arr t)
+                         False =>
+                           let fidx # t := flattenIndex bordcur (S b) bs arr t
+                             in case fidx of
+                                  Nothing    =>
+                                    Nothing # t
+                                  Just fidx' =>
+                                    let bordcur' # t := get arr fidx' t
+                                        ()       # t := set arr idx' bordcur' t
+                                      in assert_total (loop b cur patbyte bordcur' bs arr t)
     fillState :  (cur : Nat)
               -> (bs : ByteString)
               -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
               -> (bord : MArray s (S (length bs)) Nat)
-              -> F1' s
+              -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
     fillState cur bs arr bord t =
       case tryNatToFin cur of
         Nothing   =>
-          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.automaton.fillState: can't convert Nat to Fin") # t
+          Nothing # t
         Just cur' =>
           let bordcur # t := get bord cur' t
               patbyte     := index cur bs
-            in loop 255 cur patbyte bordcur bs arr t
+              arr'    # t := loop 255 cur patbyte bordcur bs arr t
+            in case arr' of
+                 Nothing    =>
+                   Nothing # t
+                 Just arr'' =>
+                   Just arr'' # t
     go :  (state : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
        -> (bord : MArray s (S (length bs)) Nat)
-       -> F1' s
+       -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
     go state bs arr bord t =
       case state > (length bs) of
         True  =>
-          () # t
+          Just arr # t
         False =>
-          let () # t := fillState state bs arr bord t
-            in assert_total (go (S state) bs arr bord t)
+          let arr' # t := fillState state bs arr bord t
+            in case arr' of
+                 Nothing    =>
+                   Nothing # t
+                 Just arr'' =>
+                   assert_total (go (S state) bs arr'' bord t)
 
 --------------------------------------------------------------------------------
 --          Boyer-Moore Preprocessing
@@ -287,30 +343,34 @@ automaton bs t =
 export
 occurrences :  (bs : ByteString)
             -> {0 prf : So (not $ null bs)}
-            -> F1 s (MArray s 256 Int)
+            -> F1 s (Maybe (MArray s 256 Int))
 occurrences bs t =
-  let arr # t := marray1 256 (the Int 1) t
-      ()  # t := go Z (length bs) bs arr t
-    in arr # t
+  let arr  # t := marray1 256 (the Int 1) t
+      arr' # t := go Z (length bs) bs arr t
+    in case arr' of
+         Nothing    =>
+           Nothing # t
+         Just arr'' =>
+           Just arr'' # t
   where
     go :  (i : Nat)
        -> (patend : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s 256 Int)
-       -> F1' s
+       -> F1 s (Maybe (MArray s 256 Int))
     go i patend bs arr t =
       case (S i) >= patend of
         True  =>
-          () # t
+          Just arr # t
         False =>
           let i' := index i bs
             in case i' of
                  Nothing  =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't index into ByteString") # t
+                   Nothing # t
                  Just i'' =>
                    case tryNatToFin (cast {to=Nat} i'') of
-                     Nothing  =>
-                       (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.occurrences.go: can't convert Nat to Fin") # t
+                     Nothing   =>
+                       Nothing # t
                      Just i''' =>
                        let () # t := set arr i''' (negate $ cast {to=Int} i) t
                          in assert_total (go (plus i 1) patend bs arr t)
@@ -358,38 +418,42 @@ occurrences bs t =
 export
 suffixLengths :  (bs : ByteString)
               -> {0 prf : So (not $ null bs)}
-              -> F1 s (MArray s (length bs) Int)
+              -> F1 s (Maybe (MArray s (length bs) Int))
 suffixLengths bs t =
   let arr # t := marray1 (length bs) (the Int 0) t
     in case tryNatToFin (minus (length bs) 1) of
          Nothing  =>
-           (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths: can't convert Nat to Fin") # t
+           Nothing # t
          Just idx =>
-           let () # t := set arr idx (cast {to=Int} (length bs)) t
-               () # t := noSuffix (cast {to=Int} (minus (length bs) 2)) bs arr t
-             in arr # t
+           let ()   # t := set arr idx (cast {to=Int} (length bs)) t
+               arr' # t := noSuffix (cast {to=Int} (minus (length bs) 2)) bs arr t
+             in case arr' of
+                  Nothing    =>
+                    Nothing # t
+                  Just arr'' =>
+                    Just arr'' # t
   where
     dec :  (diff : Int)
         -> (j : Int)
-        -> F1 s Int
+        -> F1 s (Maybe Int)
     dec diff j t =
       case j < 0 of
         True  =>
-          j # t
+          Just j # t
         False =>
           let j' := index (cast {to=Nat} j) bs
             in case j' of
                  Nothing  =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.dec: can't index into ByteString") # t
+                   Nothing # t
                  Just j'' =>
                    let j''' := index (cast {to=Nat} (j + diff)) bs
                      in case j''' of
                           Nothing    =>
-                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.dec: can't index into ByteString") # t
+                            Nothing # t
                           Just j'''' =>
                             case j'' /= j'''' of
                               True  =>
-                                j # t
+                                Just j # t
                               False =>
                                 assert_total (dec diff (j - 1) t)
     mutual
@@ -398,39 +462,39 @@ suffixLengths bs t =
                  -> (idx : Int)
                  -> (bs : ByteString)
                  -> (arr : MArray s (length bs) Int)
-                 -> F1' s
-      suffixLoop _   _   0   _  _   t =
-        () # t
+                 -> F1 s (Maybe (MArray s (length bs) Int))
+      suffixLoop _   _   0   _  arr t =
+        Just arr # t
       suffixLoop pre end idx bs arr t =
         case pre < idx of
           True  =>
             let idx' := index (cast {to=Nat} idx) bs
               in case idx' of
                    Nothing    =>
-                     (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't index into ByteString") # t
+                     Nothing # t
                    Just idx'' =>
                      let idx''' := index (minus (length bs) 1) bs
                        in case idx''' of
                             Nothing      =>
-                              (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't index into ByteString") # t
+                              Nothing # t
                             Just idx'''' =>
                               case idx'' /= idx'''' of
                                 True  =>
                                   case tryNatToFin (cast {to=Nat} idx) of
                                     Nothing   =>
-                                      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                                      Nothing # t
                                     Just idxs =>
                                       let () # t := set arr idxs 0 t
                                         in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
                                 False =>
                                   case tryNatToFin (cast {to=Nat} end) of
                                     Nothing   =>
-                                      (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                                      Nothing # t
                                     Just end' =>
                                       let prevs # t := get arr end' t
                                         in case tryNatToFin (cast {to=Nat} idx) of
                                              Nothing   =>
-                                               (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.suffixLoop: can't convert Nat to Fin") # t
+                                               Nothing # t
                                              Just idxs =>
                                                case (pre + prevs) < idx of
                                                  True  =>
@@ -438,47 +502,55 @@ suffixLengths bs t =
                                                      in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
                                                  False =>
                                                    let pri # t := dec (cast {to=Int} (minus (length bs) (cast {to=Nat} idx))) pre t
-                                                       ()  # t := set arr idxs (idx - pri) t
-                                                     in assert_total (suffixLoop pri (cast {to=Int} (minus (length bs) 2)) (idx - 1) bs arr t)
+                                                     in case pri of
+                                                          Nothing   =>
+                                                            Nothing # t
+                                                          Just pri' =>
+                                                            let () # t := set arr idxs (idx - pri') t
+                                                              in assert_total (suffixLoop pri' (cast {to=Int} (minus (length bs) 2)) (idx - 1) bs arr t)
           False =>
             noSuffix idx bs arr t
       noSuffix :  (i : Int)
                -> (bs : ByteString)
                -> (arr : MArray s (length bs) Int)
-               -> F1' s
-      noSuffix 0 _  _   t =
-        () # t
+               -> F1 s (Maybe (MArray s (length bs) Int))
+      noSuffix 0 _  arr t =
+        Just arr # t
       noSuffix i bs arr t =
         let patati := index (cast {to=Nat} i) bs
           in case patati of
                Nothing      =>
-                 (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't index into ByteString") # t
+                 Nothing # t
                Just patati' =>
                  let patatend := index (minus (length bs) 1) bs
                    in case patatend of
                         Nothing        =>
-                          (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't index into ByteString") # t
+                          Nothing # t
                         Just patatend' => 
                           case patati' == patatend' of
                             True  =>
                               let diff      := (cast {to=Int} (minus (length bs) 1)) - i
                                   nexti     := i - 1
                                   previ # t := dec diff nexti t
-                                in case tryNatToFin (cast {to=Nat} i) of
-                                     Nothing =>
-                                       (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't convert Nat to Fin") # t
-                                     Just i' =>
-                                       case previ == nexti of
-                                         True  =>
-                                           let () # t := set arr i' 1 t
-                                             in assert_total (noSuffix nexti bs arr t)
-                                         False =>
-                                           let () # t := set arr i' (i - previ) t
-                                             in assert_total (suffixLoop previ (cast {to=Int} (minus (length bs) 2)) nexti bs arr t)
+                                in case previ of
+                                     Nothing     =>
+                                       Nothing # t
+                                     Just previ' =>
+                                       case tryNatToFin (cast {to=Nat} i) of
+                                         Nothing =>
+                                           Nothing # t
+                                         Just i' =>
+                                           case previ' == nexti of
+                                             True  =>
+                                               let () # t := set arr i' 1 t
+                                                 in assert_total (noSuffix nexti bs arr t)
+                                             False =>
+                                               let () # t := set arr i' (i - previ') t
+                                                 in assert_total (suffixLoop previ' (cast {to=Int} (minus (length bs) 2)) nexti bs arr t)
                             False =>
                               case tryNatToFin (cast {to=Nat} i) of
                                 Nothing =>
-                                  (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixLengths.noSuffix: can't convert Nat to Fin") # t
+                                  Nothing # t
                                 Just i' =>
                                   let () # t := set arr i' 0 t
                                     in assert_total (noSuffix (i - 1) bs arr t)
@@ -534,27 +606,39 @@ suffixLengths bs t =
 export
 suffixShifts :  (bs : ByteString)
              -> {0 prf : So (not $ null bs)}
-             -> F1 s (MArray s (length bs) Int)
+             -> F1 s (Maybe (MArray s (length bs) Int))
 suffixShifts bs {prf} t =
   let arr  # t := marray1 (length bs) (cast {to=Int} (length bs)) t
       suff # t := suffixLengths bs {prf=prf} t
-      ()   # t := prefixShift (cast {to=Int} (minus (length bs) 2)) 0 bs suff arr t
-      ()   # t := suffixShift 0 bs suff arr t
-    in arr # t
+    in case suff of
+         Nothing    =>
+           Nothing # t
+         Just suff' =>
+           let arr' # t := prefixShift (cast {to=Int} (minus (length bs) 2)) 0 bs suff' arr t
+             in case arr' of
+                  Nothing    =>
+                    Nothing # t
+                  Just arr'' =>
+                    let arr'' # t := suffixShift 0 bs suff' arr'' t
+                      in case arr'' of
+                           Nothing     =>
+                             Nothing # t
+                           Just arr''' =>
+                             Just arr''' # t
   where
     fillToShift :  (i : Int)
                 -> (shift : Int)
                 -> (bs : ByteString)
                 -> (arr : MArray s (length bs) Int)
-                -> F1' s
+                -> F1 s (Maybe (MArray s (length bs) Int))
     fillToShift i shift bs arr t =
       case i == shift of
         True =>
-          () # t
+          Just arr # t
         False =>
           case tryNatToFin (cast {to=Nat} i) of
             Nothing =>
-              (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.fillToShift: can't convert Nat to Fin") # t
+              Nothing # t
             Just i' =>
               let () # t := set arr i' shift t
                 in assert_total (fillToShift (i + 1) shift bs arr t)
@@ -563,44 +647,48 @@ suffixShifts bs {prf} t =
                 -> (bs : ByteString)
                 -> (suff : MArray s (length bs) Int)
                 -> (arr : MArray s (length bs) Int)
-                -> F1' s
+                -> F1 s (Maybe (MArray s (length bs) Int))
     prefixShift idx j bs suff arr t =
       case idx < 0 of
         True  =>
-          () # t
+          Just arr # t
         False =>
           case tryNatToFin (cast {to=Nat} idx) of
             Nothing   =>
-              (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.prefixShift: can't convert Nat to Fin") # t
+              Nothing # t
             Just idx' =>
               let idx'' # t := get suff idx' t
                 in case idx'' == (idx + 1) of
                      True =>
-                       let shift  := (cast {to=Int} (minus (length bs) 1)) - idx
-                           () # t := fillToShift j shift bs arr t
-                         in assert_total (prefixShift (idx - 1) shift bs suff arr t)                                      
+                       let shift    := (cast {to=Int} (minus (length bs) 1)) - idx
+                           arr' # t := fillToShift j shift bs arr t
+                         in case arr' of
+                              Nothing   =>
+                                Nothing # t
+                              Just arr' =>
+                                assert_total (prefixShift (idx - 1) shift bs suff arr' t)                                      
                      False =>
                        assert_total (prefixShift (idx - 1) j bs suff arr t)
     suffixShift :  (idx : Int)
                 -> (bs : ByteString)
                 -> (suff : MArray s (length bs) Int)
                 -> (arr : MArray s (length bs) Int)
-                -> F1' s
+                -> F1 s (Maybe (MArray s (length bs) Int))
     suffixShift idx bs suff arr t =
       let patend := cast {to=Int} (minus (length bs) 1)
         in case idx >= patend of
              True  =>
-               () # t
+               Just arr # t
              False =>
                case tryNatToFin (cast {to=Nat} idx) of
                  Nothing   =>
-                   (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.suffixShift: can't convert Nat to Fin") # t
+                   Nothing # t
                  Just idx' =>
                    let idx'' # t := get suff idx' t
                        target    := patend - idx''
                      in case tryNatToFin (cast {to=Nat} target) of
                           Nothing      =>
-                            (assert_total $ idris_crash "Data.ByteString.Search.Internal.Utils.suffixShifts.suffixShift: can't convert Nat to Fin") # t
+                            Nothing # t
                           Just target' =>
                             let value  := patend - idx
                                 () # t := set arr target' value t
