@@ -168,7 +168,7 @@ prop_occurrences = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _          =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes notnullprf =>
            ( run1 $ \t =>
                let occurrences'  # t := occurrences patbs {prf=notnullprf} t
@@ -199,7 +199,7 @@ prop_occurrences' = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _          =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes notnullprf =>
            ( run1 $ \t =>
                let occurrences'  # t := occurrences patbs {prf=notnullprf} t
@@ -236,7 +236,7 @@ prop_suffixLengths = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _          =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixlengths # t := suffixLengths patbs {prf=notnullprf} t
@@ -266,7 +266,7 @@ prop_suffixLengths' = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _          =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixlengths  # t := suffixLengths patbs {prf=notnullprf} t
@@ -294,7 +294,7 @@ prop_suffixShifts = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _          =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
@@ -321,7 +321,7 @@ prop_suffixShifts' = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _          =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes notnullprf =>
            ( run1 $ \t =>
                let suffixshifts  # t := suffixShifts patbs {prf=notnullprf} t
