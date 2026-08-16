@@ -28,17 +28,17 @@ prop_matchBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ANPANMAN"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             matchBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [0,3,6]
@@ -60,17 +60,17 @@ prop_indicesBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ABCABCABC"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             indicesBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [0,3]
@@ -85,17 +85,17 @@ prop_breakBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ABCABCABC"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             breakBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Just
@@ -114,17 +114,17 @@ prop_breakAfterBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ABCABCABC"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             breakAfterBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === ( Just
@@ -144,17 +144,17 @@ prop_splitKeepFrontBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ABCABCABC"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             splitKeepFrontBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABCABC")
@@ -170,17 +170,17 @@ prop_splitKeepEndBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ABCABCABC"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             splitKeepEndBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "ABCABC")
@@ -197,17 +197,17 @@ prop_splitDropBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let target   := Prelude.unpack "ABCABCABC"
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             splitDropBM patbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.empty
@@ -224,7 +224,7 @@ prop_replaceBM = property1 $
       patbs := Data.ByteString.pack (map (cast {to=Bits8}) pat)
     in case decSo $ (not $ null patbs) of
          No  _      =>
-           assert_total $ idris_crash "pat is null"
+           failure
          Yes patprf =>
            let sub      := Prelude.unpack "BA"
                subbs    := Data.ByteString.pack (map (cast {to=Bits8}) sub)
@@ -232,11 +232,11 @@ prop_replaceBM = property1 $
                targetbs := Data.ByteString.pack (map (cast {to=Bits8}) target)
              in case decSo $ (not $ null targetbs) of
                   No  _         =>
-                    assert_total $ idris_crash "target is null"
+                    failure
                   Yes targetprf =>
                     case decSo $ (length targetbs) >= (length patbs) of
                       No  _         =>
-                        assert_total $ idris_crash "the target is shorter than the pattern"
+                        failure
                       Yes lengthprf =>
                         ( run1 $ \t =>
                             replaceBM patbs subbs targetbs {prfpat=patprf} {prftarget=targetprf} {prflength=lengthprf} t) === Just [ Data.ByteString.pack $ map (cast {to=Bits8}) (Prelude.unpack "BA")
