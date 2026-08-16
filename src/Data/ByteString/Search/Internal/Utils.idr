@@ -53,30 +53,31 @@ kmpBorders bs t =
     dec _ Z _  _   t =
       Just Z # t
     dec i j bs arr t =
-      case tryNatToFin j of
-        Nothing   =>
-          Nothing # t
-        Just j' =>
-          let j'' # t := get arr j' t
-              wj      := index j'' bs
-            in case wj of
-                 Nothing  =>
-                   Nothing # t
-                 Just wj' =>
-                   let wi := index (minus i 1) bs
-                     in case wi of
-                          Nothing  =>
-                            Nothing # t
-                          Just wi' =>
-                            case (cast {to=Nat} wi') == (cast {to=Nat} wj') of
+      let Just j' := tryNatToFin j | Nothing => Nothing # t 
+      --case tryNatToFin j of
+      --  Nothing   =>
+      --    Nothing # t
+      --  Just j' =>
+          j'' # t := get arr j' t
+          wj      := index j'' bs
+        in case wj of
+             Nothing  =>
+               Nothing # t
+             Just wj' =>
+               let wi := index (minus i 1) bs
+                 in case wi of
+                      Nothing  =>
+                        Nothing # t
+                      Just wi' =>
+                        case (cast {to=Nat} wi') == (cast {to=Nat} wj') of
+                          True  =>
+                            Just (plus j'' 1) # t
+                          False =>
+                            case j'' == 0 of
                               True  =>
-                                Just (plus j'' 1) # t
+                                Just Z # t
                               False =>
-                                case j'' == 0 of
-                                  True  =>
-                                    Just Z # t
-                                  False =>
-                                    assert_total (dec i j'' bs arr t)
+                                assert_total (dec i j'' bs arr t)
     go :  (i : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (S (length bs)) Nat)
