@@ -24,40 +24,33 @@ matcher :  Bool
         -> ByteString
         -> F1 s (Maybe (List Int))
 matcher overlap pat target t =
-  case length pat == S Z of
-    True  =>
-      let patzero := index Z pat
-        in case patzero of
-             Nothing       =>
-               Nothing # t
-             Just patzero' =>
-               let headelem := elemIndex patzero' pat
-                 in case headelem of
-                      Nothing        =>
-                        Nothing # t
-                      Just headelem' =>
-                        Just ((cast {to=Int} headelem') :: []) # t
-    False =>
-      case decSo $ (not $ null pat) of
-        No  _      =>
-          Nothing # t
-        Yes patprf =>
-          let occurrencesarr # t := occurrences pat {prf=patprf} t
-            in case occurrencesarr of
-                 Nothing              =>
-                   Nothing # t
-                 Just occurrencesarr' =>
-                   let suffixshiftsarr # t := suffixShifts pat {prf=patprf} t
-                     in case suffixshiftsarr of
-                          Nothing               =>
-                            Nothing # t
-                          Just suffixshiftsarr' =>
-                            let matches # t := checkEnd (cast {to=Int} (minus (length pat) (S 0))) pat target Lin occurrencesarr' suffixshiftsarr' overlap t
-                              in case matches of
-                                   Nothing       =>
-                                     Nothing # t
-                                   Just matches' =>
-                                     Just (matches' <>> []) # t
+  let False                 := length pat == S Z
+        | True =>
+            let patzero        := index Z pat
+                Just patzero'  := patzero
+                  | Nothing =>
+                      Nothing # t
+                headelem       := elemIndex patzero' pat
+                Just headelem' := headelem
+                  | Nothing =>
+                      Nothing # t
+              in Just ((cast {to=Int} headelem') :: []) # t
+      Yes patprf            := decSo (not $ null pat)
+        | No _ =>
+            Nothing # t
+      occurrencesarr    # t := occurrences pat {prf=patprf} t
+      Just occurrencesarr'  := occurrencesarr
+        | Nothing =>
+            Nothing # t
+      suffixshiftsarr   # t := suffixShifts pat {prf=patprf} t
+      Just suffixshiftsarr' := suffixshiftsarr
+        | Nothing =>
+            Nothing # t
+      matches           # t := checkEnd (cast {to=Int} (minus (length pat) (S 0))) pat target Lin occurrencesarr' suffixshiftsarr' overlap t
+      Just matches'         := matches
+        | Nothing =>
+            Nothing # t
+    in Just (matches' <>> []) # t
   where
     mutual
       checkEnd :  (stri : Int)
@@ -69,33 +62,28 @@ matcher overlap pat target t =
                -> (overlap : Bool)
                -> F1 s (Maybe (SnocList Int))
       checkEnd stri pat target final occurrencesarr suffixshiftarr overlap t =
-        let patend := (cast {to=Int} (length pat)) - 1
-            strend := (cast {to=Int} (length target)) - 1
-          in case strend < stri of
-               True  =>
-                 Just final # t
-               False =>       
-                 let target' := index (cast {to=Nat} stri) target
-                   in case target' of
-                        Nothing       =>
-                          Nothing # t
-                        Just target'' =>
-                          let pat' := index (cast {to=Nat} patend) pat
-                            in case pat' of
-                                 Nothing    =>
-                                   Nothing # t
-                                 Just pat'' =>
-                                   case target'' == pat'' of
-                                     True  =>
-                                       assert_total (findMatch (stri - patend) (patend - 1) pat target final occurrencesarr suffixshiftarr overlap t)
-                                     False =>
-                                       case tryNatToFin (cast {to=Nat} target'') of
-                                         Nothing        =>
-                                           Nothing # t
-                                         Just target''' =>
-                                           let target'''' # t := get occurrencesarr target''' t
-                                               newtarget      := stri + patend + target''''
-                                             in assert_total (checkEnd newtarget pat target final occurrencesarr suffixshiftarr overlap t)
+        let patend         := (cast {to=Int} (length pat)) - 1
+            strend         := (cast {to=Int} (length target)) - 1
+            False          := strend < stri
+              | True =>
+                  Just final # t
+            target'        := index (cast {to=Nat} stri) target
+            Just target''  := target'
+              | Nothing =>
+                  Nothing # t
+            pat'           := index (cast {to=Nat} patend) pat
+            Just pat''     := pat'
+              | Nothing =>
+                  Nothing # t
+            False          := target'' == pat''
+              | True =>
+                  assert_total (findMatch (stri - patend) (patend - 1) pat target final occurrencesarr suffixshiftarr overlap t)
+            Just target''' := tryNatToFin (cast {to=Nat} target'')
+              | Nothing =>
+                  Nothing # t
+            target'''' # t := get occurrencesarr target''' t
+            newtarget      := stri + patend + target''''
+          in assert_total (checkEnd newtarget pat target final occurrencesarr suffixshiftarr overlap t)
       findMatch :  (diff : Int)
                 -> (pati : Int)
                 -> (pat : ByteString)
@@ -106,72 +94,59 @@ matcher overlap pat target t =
                 -> (overlap : Bool)
                 -> F1 s (Maybe (SnocList Int))
       findMatch diff pati pat target final occurrencesarr suffixshiftarr overlap t =
-        let diffpati := index (cast {to=Nat} (diff + pati)) target
-          in case diffpati of
-               Nothing        =>
-                 Nothing # t
-               Just diffpati' =>
-                 let pati' := index (cast {to=Nat} pati) pat
-                   in case pati' of
-                        Nothing     =>
-                          Nothing # t
-                        Just pati'' =>
-                          case diffpati' == pati'' of
-                            True  =>
-                              case pati == 0 of
-                                True  =>
-                                  let final' := final :< diff
-                                    in case overlap of
-                                         True  =>
-                                           case tryNatToFin Z of
-                                             Nothing   =>
-                                               Nothing # t
-                                             Just zero =>
-                                               let skip # t := get suffixshiftarr zero t
-                                                   diff'    := diff + skip
-                                                   maxdiff  := minus (length target) (length pat)
-                                                 in case (cast {to=Int} maxdiff) < diff' of
-                                                      True  =>
-                                                        Just final' # t
-                                                      False =>
-                                                        case skip == (cast {to=Int} (length pat)) of
-                                                          True  =>
-                                                            assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                                          False =>
-                                                            assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                         False =>
-                                           let skip    := length pat
-                                               diff'   := diff + (cast {to=Int} skip)
-                                               maxdiff := minus (length target) (length pat)
-                                             in case (cast {to=Int} maxdiff) < diff' of
-                                                  True  =>
-                                                    Just final' # t
-                                                  False =>
-                                                    case skip == (length pat) of
-                                                      True  =>
-                                                        assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                                      False =>
-                                                        assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                False =>
-                                  assert_total (findMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
-                            False =>
-                              case tryNatToFin (cast {to=Nat} diffpati') of
-                                Nothing         =>
-                                  Nothing # t
-                                Just diffpati'' =>
-                                  case tryNatToFin (cast {to=Nat} pati) of
-                                    Nothing    =>
-                                      Nothing # t
-                                    Just pati' =>
-                                      let occur # t := get occurrencesarr diffpati'' t
-                                          suff  # t := get suffixshiftarr pati' t
-                                          diff'     := diff + (max (pati + occur) suff)
-                                          maxdiff   := minus (length target) (length pat)
-                                        in case (cast {to=Int} maxdiff) < diff' of
-                                             True  =>
-                                               Just final # t
-                                             False =>
-                                               assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final occurrencesarr suffixshiftarr overlap t)
+        let diffpati       := index (cast {to=Nat} (diff + pati)) target
+            Just diffpati' := diffpati
+              | Nothing =>
+                  Nothing # t
+            pati'          := index (cast {to=Nat} pati) pat
+            Just pati''    := pati'
+              | Nothing =>
+                  Nothing # t
+            True           := diffpati' == pati''
+              | False =>
+                  let Just diffpati'' := tryNatToFin (cast {to=Nat} diffpati')
+                        | Nothing =>
+                            Nothing # t
+                      Just pati'''    := tryNatToFin (cast {to=Nat} pati)
+                        | Nothing =>
+                            Nothing # t
+                      occur       # t := get occurrencesarr diffpati'' t
+                      suff        # t := get suffixshiftarr pati''' t
+                      diff'           := diff + (max (pati + occur) suff)
+                      maxdiff         := minus (length target) (length pat)
+                      False           := (cast {to=Int} maxdiff) < diff'
+                        | True =>
+                            Just final # t
+                    in assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final occurrencesarr suffixshiftarr overlap t)
+            True           := pati == 0
+              | False =>
+                  assert_total (findMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
+            final'         := final :< diff
+            True           := overlap
+              | False =>
+                  let skip    := length pat
+                      diff'   := diff + (cast {to=Int} skip)
+                      maxdiff := minus (length target) (length pat)
+                      False   := (cast {to=Int} maxdiff) < diff'
+                        | True =>
+                            Just final' # t
+                      False   := skip == (length pat)
+                        | True =>
+                            assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final' occurrencesarr suffixshiftarr overlap t)
+                    in assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
+            Just zero      := tryNatToFin Z
+              | Nothing =>
+                  Nothing # t
+            skip       # t := get suffixshiftarr zero t
+            diff'          := diff + skip
+            maxdiff        := minus (length target) (length pat)
+            False          := (cast {to=Int} maxdiff) < diff'
+              | True =>
+                  Just final' # t
+            False          := skip == (cast {to=Int} (length pat))
+              | True =>
+                  assert_total (checkEnd (diff' + ((cast {to=Int} (length pat)) - 1)) pat target final' occurrencesarr suffixshiftarr overlap t)
+          in assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
       afterMatch :  (diff : Int)
                  -> (pati : Int)
                  -> (pat : ByteString)
@@ -182,82 +157,68 @@ matcher overlap pat target t =
                  -> (overlap : Bool)
                  -> F1 s (Maybe (SnocList Int))
       afterMatch diff pati pat target final occurrencesarr suffixshiftarr overlap t =
-        let diffpati := index (cast {to=Nat} (diff + pati)) target
-          in case diffpati of
-               Nothing        =>
-                 Nothing # t
-               Just diffpati' =>
-                 let pati' := index (cast {to=Nat} pati) pat
-                   in case pati' of
-                        Nothing     =>
-                          Nothing # t
-                        Just pati'' =>                          
-                          case diffpati' == pati'' of
-                            True  =>
-                              case overlap of
-                                True  =>
-                                  case tryNatToFin Z of
-                                    Nothing   =>
+        let diffpati       := index (cast {to=Nat} (diff + pati)) target
+            Just diffpati' := diffpati
+              | Nothing =>
+                  Nothing # t
+            pati'          := index (cast {to=Nat} pati) pat
+            Just pati''    := pati'
+              | Nothing =>
+                  Nothing # t
+            True           := diffpati' == pati''
+              | False =>
+                  let False           := pati == ((cast {to=Int} (length pat)) - 1)
+                        | True =>
+                            let Just diffpati'' := tryNatToFin (cast {to=Nat} diffpati')
+                                  | Nothing =>
                                       Nothing # t
-                                    Just zero =>
-                                      let skip # t := get suffixshiftarr zero t
-                                          kept     := (cast {to=Int} (length pat)) - skip
-                                        in case pati == kept of
-                                             True  =>
-                                               let final'  := final :< diff
-                                                   diff'   := diff + skip
-                                                   maxdiff := minus (length target) (length pat)
-                                                 in case (cast {to=Int} maxdiff) < diff' of
-                                                      True  =>
-                                                        Just final' # t
-                                                      False =>
-                                                        assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                             False =>
-                                               assert_total (afterMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
-                                False =>
-                                  let kept := minus (length pat) (length pat)
-                                    in case pati == (cast {to=Int} kept) of
-                                         True  =>
-                                           let final'  := final :< diff
-                                               skip    := length pat
-                                               diff'   := diff + (cast {to=Int} skip)
-                                               maxdiff := minus (length target) (length pat)
-                                             in case (cast {to=Int} maxdiff) < diff' of
-                                                  True  =>
-                                                    Just final' # t
-                                                  False =>
-                                                    assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
-                                         False =>
-                                           assert_total (afterMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
-                            False =>
-                              case pati == ((cast {to=Int} (length pat)) - 1) of
-                                True  =>
-                                  case tryNatToFin (cast {to=Nat} diffpati') of
-                                    Nothing         =>
-                                      Nothing # t
-                                    Just diffpati'' =>
-                                      let occur # t := get occurrencesarr diffpati'' t
-                                          occur'    := diff + (2 * ((cast {to=Int} (length pat)) - 1)) + occur
-                                        in assert_total (checkEnd occur' pat target final occurrencesarr suffixshiftarr overlap t)
-                                False =>
-                                  case tryNatToFin (cast {to=Nat} diffpati') of
-                                    Nothing         =>
-                                      Nothing # t
-                                    Just diffpati'' =>
-                                      case tryNatToFin (cast {to=Nat} pati) of
-                                        Nothing     =>
-                                          Nothing # t
-                                        Just pati'' =>
-                                          let occur     # t := get occurrencesarr diffpati'' t
-                                              goodshift # t := get suffixshiftarr pati'' t
-                                              badshift      := pati + occur
-                                              diff'         := diff + (max badshift goodshift)
-                                              maxdiff       := minus (length target) (length pat)
-                                            in case (cast {to=Int} maxdiff) < diff' of
-                                                 True  =>
-                                                   Just final # t
-                                                 False =>
-                                                   assert_total (checkEnd (diff + ((cast {to=Int} (length pat)) - 1)) pat target final occurrencesarr suffixshiftarr overlap t)
+                                occur       # t := get occurrencesarr diffpati'' t
+                                occur'          := diff + (2 * ((cast {to=Int} (length pat)) - 1)) + occur
+                              in assert_total (checkEnd occur' pat target final occurrencesarr suffixshiftarr overlap t)
+                      Just diffpati'' := tryNatToFin (cast {to=Nat} diffpati')
+                        | Nothing =>
+                            Nothing # t
+                      Just pati'''    := tryNatToFin (cast {to=Nat} pati)
+                        | Nothing =>
+                            Nothing # t
+                      occur       # t := get occurrencesarr diffpati'' t
+                      goodshift   # t := get suffixshiftarr pati''' t
+                      badshift        := pati + occur
+                      diff'           := diff + (max badshift goodshift)
+                      maxdiff         := minus (length target) (length pat)
+                      False           := (cast {to=Int} maxdiff) < diff'
+                        | True =>
+                            Just final # t
+                    in assert_total (checkEnd (diff + ((cast {to=Int} (length pat)) - 1)) pat target final occurrencesarr suffixshiftarr overlap t)
+            True           := overlap
+              | False =>
+                  let kept := minus (length pat) (length pat)
+                      True := pati == (cast {to=Int} kept)
+                        | False =>
+                            assert_total (afterMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
+                      final'  := final :< diff
+                      skip    := length pat
+                      diff'   := diff + (cast {to=Int} skip)
+                      maxdiff := minus (length target) (length pat)
+                      False   := (cast {to=Int} maxdiff) < diff'
+                        | True =>
+                            Just final' # t
+                    in assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
+            Just zero      := tryNatToFin Z
+              | Nothing =>
+                  Nothing # t
+            skip       # t := get suffixshiftarr zero t
+            kept           := (cast {to=Int} (length pat)) - skip
+            True           := pati == kept
+              | False =>
+                  assert_total (afterMatch diff (pati - 1) pat target final occurrencesarr suffixshiftarr overlap t)
+            final'         := final :< diff
+            diff'          := diff + skip
+            maxdiff        := minus (length target) (length pat)
+            False          := (cast {to=Int} maxdiff) < diff'
+              | True =>
+                  Just final' # t
+          in assert_total (afterMatch diff' ((cast {to=Int} (length pat)) - 1) pat target final' occurrencesarr suffixshiftarr overlap t)
                         
 ||| Performs a string search on a `ByteString` utilizing a Boyer-Moore algorithm.
 |||
@@ -290,12 +251,11 @@ matchBM :  (pat : ByteString)
         -> {0 prflength : So ((length target) >= (length pat))}
         -> F1 s (Maybe (List Int))
 matchBM pat target {prfpat} {prftarget} {prflength} t =
-  let matcher' # t := matcher False pat target t
-    in case matcher' of
-         Nothing        =>
-           Nothing # t
-         Just matcher'' =>
-           Just matcher'' # t
+  let matcher' # t   := matcher False pat target t
+      Just matcher'' := matcher'
+        | Nothing =>
+            Nothing # t
+    in Just matcher'' # t
 
 ||| Performs a string search on a `ByteString` utilizing a Boyer-Moore algorithm.
 |||
@@ -326,12 +286,11 @@ indicesBM :  (pat : ByteString)
           -> {0 prflength : So ((length target) >= (length pat))}
           -> F1 s (Maybe (List Int))
 indicesBM pat target {prfpat} {prftarget} {prflength} t =
-  let matcher' # t := matcher True pat target t
-    in case matcher' of
-         Nothing        =>
-           Nothing # t
-         Just matcher'' =>
-           Just matcher'' # t
+  let matcher'   # t := matcher True pat target t
+      Just matcher'' := matcher'
+        | Nothing =>
+            Nothing # t
+    in Just matcher'' # t
 
 ||| Splits a ByteString at the first match of pat in target.
 |||
@@ -352,21 +311,18 @@ breakBM :  (pat : ByteString)
         -> {0 prflength : So ((length target) >= (length pat))}
         -> F1 s (Maybe (ByteString, ByteString))
 breakBM pat target {prfpat} {prftarget} {prflength} t =
-   let matcher' # t := matcher False pat target t
-     in case matcher' of
-          Nothing        =>
-            Nothing # t
-          Just matcher'' =>
-            case matcher'' of
-              []       =>
-                Just (target, empty) # t
-              (i :: _) =>
-                let target' := splitAt (cast {to=Nat} i) target
-                  in case target' of
-                       Nothing       =>
-                         Nothing # t
-                       Just target'' =>
-                         Just target'' # t
+   let matcher'   # t := matcher False pat target t
+       Just matcher'' := matcher'
+         | Nothing =>
+             Nothing # t
+       (i :: _)       := matcher''
+         | [] =>
+             Just (target, empty) # t
+       target'        := splitAt (cast {to=Nat} i) target
+       Just target''  := target'
+         | Nothing =>
+             Nothing # t
+     in Just target'' # t
 
 ||| Splits a ByteString after the first match of pat in target.
 |||
@@ -388,21 +344,18 @@ breakAfterBM :  (pat : ByteString)
              -> {0 prflength : So ((length target) >= (length pat))}
              -> F1 s (Maybe (ByteString, ByteString))
 breakAfterBM pat target {prfpat} {prftarget} {prflength} t =
-   let matcher' # t := matcher False pat target t
-     in case matcher' of
-          Nothing        =>
-            Nothing # t
-          Just matcher'' =>
-            case matcher'' of
-              []       =>
-                Just (target, empty) # t
-              (i :: _) =>
-                let target' := splitAt (plus (cast {to=Nat} i) (length pat)) target
-                  in case target' of
-                       Nothing       =>
-                         Nothing # t
-                       Just target'' =>
-                         Just target'' # t
+   let matcher'   # t := matcher False pat target t
+       Just matcher'' := matcher'
+         | Nothing =>
+             Nothing # t
+       (i :: _)       := matcher''
+         | [] =>
+             Just (target, empty) # t
+       target'        := splitAt (plus (cast {to=Nat} i) (length pat)) target
+       Just target''  := target'
+         | Nothing =>
+             Nothing # t
+     in Just target'' # t
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of target, keeping the matching prefix of pat
@@ -426,52 +379,46 @@ splitKeepFrontBM :  (pat : ByteString)
                  -> {0 prflength : So ((length target) >= (length pat))}
                  -> F1 s (Maybe (List ByteString))
 splitKeepFrontBM pat target {prfpat} {prftarget} {prflength} t =
-  let splitter' # t := splitter pat target Lin t
-    in case splitter' of
-         Nothing         =>
-           Nothing # t
-         Just splitter'' =>
-           Just (splitter'' <>> []) # t
+  let splitter'   # t := splitter pat target Lin t
+      Just splitter'' := splitter'
+        | Nothing =>
+            Nothing # t
+    in Just (splitter'' <>> []) # t
   where
     psSplitter :  (pat : ByteString)
                -> (target : ByteString)
                -> (final : SnocList ByteString)
                -> F1 s (Maybe (SnocList ByteString))
     psSplitter pat target final t =
-      let matcher' # t := matcher False pat (drop (length pat) target) t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) => 
-                   let length' := plus (cast {to=Nat} i) (length pat)
-                       final'  := final :< (take length' target)
-                     in assert_total (psSplitter pat (drop length' target) final' t) 
+      let matcher'   # t := matcher False pat (drop (length pat) target) t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          length'        := plus (cast {to=Nat} i) (length pat)
+          final'         := final :< (take length' target)
+        in assert_total (psSplitter pat (drop length' target) final' t) 
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) => 
-                   case i == 0 of
-                     True  =>
-                       assert_total (psSplitter pat target final t)
-                     False =>
-                       let final' := final :< (take (cast {to=Nat} i) target)
-                         in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t) 
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          False          := i == 0
+            | True =>
+                assert_total (psSplitter pat target final t)
+          final'         := final :< (take (cast {to=Nat} i) target)
+        in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t) 
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of pat inside target, keeping the matching
@@ -501,31 +448,28 @@ splitKeepEndBM :  (pat : ByteString)
                -> {0 prflength : So ((length target) >= (length pat))}
                -> F1 s (Maybe (List ByteString))
 splitKeepEndBM pat target {prfpat} {prftarget} {prflength} t =
-  let splitter' # t := splitter pat target Lin t
-    in case splitter' of
-         Nothing         =>
-           Nothing # t
-         Just splitter'' =>
-           Just (splitter'' <>> []) # t
+  let splitter'   # t := splitter pat target Lin t
+      Just splitter'' := splitter'
+        | Nothing =>
+            Nothing # t
+    in Just (splitter'' <>> []) # t
   where
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) => 
-                   let length' := plus (cast {to=Nat} i) (length pat)
-                       final'  := final :< (take length' target)
-                     in assert_total (splitter pat (drop length' target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          length'        := plus (cast {to=Nat} i) (length pat)
+          final'         := final :< (take length' target)
+        in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of pat inside target, dropping each matched
@@ -557,31 +501,28 @@ splitDropBM :  (pat : ByteString)
             -> {0 prflength : So ((length target) >= (length pat))}
             -> F1 s (Maybe (List ByteString))
 splitDropBM pat target {prfpat} {prftarget} {prflength} t =
-  let splitter' # t := splitter pat target Lin t
-    in case splitter' of
-         Nothing         =>
-           Nothing # t
-         Just splitter'' =>
-           Just (splitter'' <>> []) # t
+  let splitter' # t   := splitter pat target Lin t
+      Just splitter'' := splitter'
+        | Nothing =>
+            Nothing # t
+    in Just (splitter'' <>> []) # t
   where
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   let length' := plus (cast {to=Nat} i) (length pat)
-                       final'  := final :< (take (cast {to=Nat} i) target)
-                     in assert_total (splitter pat (drop length' target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          length'        := plus (cast {to=Nat} i) (length pat)
+          final'         := final :< (take (cast {to=Nat} i) target)
+        in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Replaces all non-overlapping occurrences of a pattern in a ByteString
 ||| using the Boyer–Moore matcher.
@@ -612,12 +553,11 @@ replaceBM :  (pat : ByteString)
           -> {0 prflength : So ((length target) >= (length pat))}
           -> F1 s (Maybe (List ByteString))
 replaceBM pat sub target {prfpat} {prftarget} {prflength} t =
-  let replacer' # t := replacer pat sub target Lin t
-    in case replacer' of
-         Nothing         =>
-           Nothing # t
-         Just replacer'' =>
-           Just (replacer'' <>> []) # t
+  let replacer'   # t := replacer pat sub target Lin t
+      Just replacer'' := replacer'
+        | Nothing =>
+            Nothing # t
+    in Just (replacer'' <>> []) # t
   where
     replacer :  (pat : ByteString)
              -> (sub : ByteString)
@@ -625,31 +565,26 @@ replaceBM pat sub target {prfpat} {prftarget} {prflength} t =
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     replacer pat sub target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   case i of
-                     0 =>
-                       case null sub of
-                         True  =>
-                           assert_total (replacer pat sub (drop (length pat) target) final t)
-                         False =>
-                           let final' := final :< sub
-                             in assert_total (replacer pat sub (drop (length pat) target) final') t
-                     _ =>
-                       case null sub of
-                         True  =>
-                           let length' := plus (cast {to=Nat} i) (length pat) 
-                               final'  := final :< (take (cast {to=Nat} i) target)
-                             in assert_total (replacer pat sub (drop length' target) final' t)
-                         False =>
-                           let length' := plus (cast {to=Nat} i) (length pat) 
-                               final'  := final :< (take (cast {to=Nat} i) target) :< sub
-                             in assert_total (replacer pat sub (drop length' target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          Z              := cast {to=Nat} i
+            | _ =>
+                let False := null sub
+                      | True =>
+                          let length' := plus (cast {to=Nat} i) (length pat) 
+                              final'  := final :< (take (cast {to=Nat} i) target)
+                            in assert_total (replacer pat sub (drop length' target) final' t)
+                    length' := plus (cast {to=Nat} i) (length pat) 
+                    final'  := final :< (take (cast {to=Nat} i) target) :< sub
+                  in assert_total (replacer pat sub (drop length' target) final' t)
+          False          := null sub
+            | True =>
+                assert_total (replacer pat sub (drop (length pat) target) final t)
+          final'         := final :< sub
+        in assert_total (replacer pat sub (drop (length pat) target) final') t

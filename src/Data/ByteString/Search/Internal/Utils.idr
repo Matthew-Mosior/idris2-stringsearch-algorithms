@@ -53,58 +53,40 @@ kmpBorders bs t =
     dec _ Z _  _   t =
       Just Z # t
     dec i j bs arr t =
-      case tryNatToFin j of
-        Nothing   =>
-          Nothing # t
-        Just j' =>
-          let j'' # t := get arr j' t
-              wj      := index j'' bs
-            in case wj of
-                 Nothing  =>
-                   Nothing # t
-                 Just wj' =>
-                   let wi := index (minus i 1) bs
-                     in case wi of
-                          Nothing  =>
-                            Nothing # t
-                          Just wi' =>
-                            case (cast {to=Nat} wi') == (cast {to=Nat} wj') of
-                              True  =>
-                                Just (plus j'' 1) # t
-                              False =>
-                                case j'' == 0 of
-                                  True  =>
-                                    Just Z # t
-                                  False =>
-                                    assert_total (dec i j'' bs arr t)
+      let Just j'  := tryNatToFin j
+            | Nothing => Nothing # t 
+          j'' # t  := get arr j' t
+          wj       := index j'' bs
+          Just wj' := wj
+            | Nothing => Nothing # t
+          wi       := index (minus i 1) bs
+          Just wi' := wi
+            | Nothing => Nothing # t
+          False    := (cast {to=Nat} wi') == (cast {to=Nat} wj')
+            | True => Just (plus j'' 1) # t
+          False    := j'' == 0
+            | True => Just Z # t
+        in assert_total (dec i j'' bs arr t)
     go :  (i : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (S (length bs)) Nat)
        -> F1 s (Maybe (MArray s (S (length bs)) Nat))
     go Z     _ arr t =
-      case tryNatToFin 0 of
-        Nothing   =>
-          Nothing # t
-        Just zero =>
-          let () # t := set arr zero 0 t
-            in Just arr # t
+      let Just zero := tryNatToFin 0
+            | Nothing => Nothing # t
+          ()    # t := set arr zero 0 t
+        in Just arr # t
     go (S i) bs arr t =
-      let i' # t := assert_total (go i bs arr t)
-        in case i' of
-             Nothing =>
-               Nothing # t
-             Just _  =>
-               case tryNatToFin (S i) of
-                 Nothing =>
-                   Nothing # t
-                 Just i' =>
-                   let j # t := dec (S i) i bs arr t
-                     in case j of
-                          Nothing =>
-                            Nothing # t
-                          Just j' =>
-                            let () # t := set arr i' j' t
-                              in Just arr # t
+      let i'   # t := assert_total (go i bs arr t)
+          Just   _ := i'
+            | Nothing => Nothing # t
+          Just i'' := tryNatToFin (S i)
+            | Nothing => Nothing # t
+          j    # t := dec (S i) i bs arr t
+          Just j' := j
+            | Nothing => Nothing # t
+          ()   # t := set arr i'' j' t
+        in Just arr # t
 
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||
@@ -129,12 +111,9 @@ kmpBorders bs t =
 ||| flatindex = (state ∗ alphabetsize) + charcode
 |||
 ||| Where:
-|||
-||| state : Range from 0 to length of the input pattern
-|||
-||| alphabetsize : All possible input characters (in this case extended ASCII, 8-bit range from 0 to 255)
-|||
-||| charcode : Characters are interpreted via its ASCII code ('A' = 65, 'M' = 77, 'N' = 78, 'P' = 80, and so on)
+||| - state : Range from 0 to length of the input pattern
+||| - alphabetsize : All possible input characters (in this case extended ASCII, 8-bit range from 0 to 255)
+||| - charcode : Characters are interpreted via its ASCII code ('A' = 65, 'M' = 77, 'N' = 78, 'P' = 80, and so on)
 |||
 ||| | Flat index | State | Char code | Char | Meaning       |
 ||| | ---------- | ----- | --------- | ---- | ------------- |
@@ -157,18 +136,14 @@ export
 automaton :  (bs : ByteString)
           -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
 automaton bs t =
-  let arr  # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
-      bord # t := kmpBorders bs t
-    in case bord of
-         Nothing    =>
-           Nothing # t
-         Just bord' =>
-           let arr' # t := go Z bs arr bord' t
-             in case arr' of
-                  Nothing    =>
-                    Nothing # t
-                  Just arr'' =>
-                    Just arr'' # t
+  let arr    # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
+      bord   # t := kmpBorders bs t
+      Just bord' := bord
+        | Nothing => Nothing # t
+      arr'   # t := go Z bs arr bord' t
+      Just arr'' := arr'
+        | Nothing => Nothing # t
+    in Just arr'' # t 
   where
     flattenIndex :  (st : Nat)
                  -> (byte : Nat)
@@ -177,11 +152,9 @@ automaton bs t =
                  -> F1 s (Maybe (Fin (mult (plus (length bs) 1) 256)))
     flattenIndex st byte bs arr t =
       let idx := plus (mult st 256) byte
-        in case tryNatToFin idx of
-             Nothing   =>
-               Nothing # t
-             Just idx' =>
-               Just idx' # t
+          Just idx' := tryNatToFin idx
+            | Nothing => Nothing # t
+        in Just idx' # t
     loop :  (b : Nat)
          -> (cur : Nat)
          -> (patbyte : Maybe Bits8)
@@ -190,119 +163,99 @@ automaton bs t =
          -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
          -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
     loop Z     cur patbyte bordcur bs arr t =
-      let idx # t := flattenIndex cur Z bs arr t
-        in case idx of
-             Nothing   =>
-               Nothing # t
-             Just idx' =>
-               case patbyte of
-                 Nothing       =>
-                   case cur == Z of
-                     True  =>
-                       let () # t := set arr idx' Z t
-                         in Just arr # t
-                     False =>
-                       let fidx # t := flattenIndex bordcur Z bs arr t
-                         in case fidx of
-                              Nothing    =>
-                                Nothing # t
-                              Just fidx' =>
-                                let bordcur' # t := get arr fidx' t
-                                    ()       # t := set arr idx' bordcur' t
-                                  in Just arr # t
-                 Just patbyte' =>
-                   case Z == (cast {to=Nat} patbyte') of
-                     True  =>
-                       let () # t := set arr idx' (S cur) t
-                         in Just arr # t
-                     False =>
-                       case cur == Z of
-                         True  =>
-                           let () # t := set arr idx' Z t
-                             in Just arr # t
-                         False =>
-                           let fidx # t := flattenIndex bordcur Z bs arr t
-                             in case fidx of
-                                  Nothing    =>
-                                    Nothing # t
-                                  Just fidx' =>
-                                    let bordcur' # t := get arr fidx' t
-                                        ()       # t := set arr idx' bordcur' t
-                                      in Just arr # t
+      let idx       # t := flattenIndex cur Z bs arr t
+          Just idx'     := idx
+            | Nothing => Nothing # t
+          Just patbyte' := patbyte
+            | Nothing =>
+                let False := cur == Z
+                      | True =>
+                          let () # t := set arr idx' Z t
+                            in Just arr # t
+                    fidx # t := flattenIndex bordcur Z bs arr t
+                    Just fidx' := fidx
+                      | Nothing =>
+                          Nothing # t
+                    bordcur' # t := get arr fidx' t
+                    ()       # t := set arr idx' bordcur' t
+                  in Just arr # t
+          False         := Z == (cast {to=Nat} patbyte')
+            | True =>
+                let () # t := set arr idx' (S cur) t
+                  in Just arr # t
+          False         := cur == Z
+            | True =>
+                let () # t := set arr idx' Z t
+                  in Just arr # t
+          fidx # t      := flattenIndex bordcur Z bs arr t
+          Just fidx'    := fidx
+            | Nothing =>
+                Nothing # t
+          bordcur' # t  := get arr fidx' t
+          ()       # t  := set arr idx' bordcur' t
+            in Just arr # t
     loop (S b) cur patbyte bordcur bs arr t =
-      let idx # t := flattenIndex cur (S b) bs arr t
-        in case idx of
-             Nothing   =>
-               Nothing # t
-             Just idx' =>
-               case patbyte of
-                 Nothing       =>
-                   case cur == Z of
-                     True  =>
-                       let () # t := set arr idx' Z t
-                         in assert_total (loop b cur patbyte bordcur bs arr t)
-                     False =>
-                       let fidx # t := flattenIndex bordcur (S b) bs arr t
-                         in case fidx of
-                              Nothing    =>
-                                Nothing # t
-                              Just fidx' =>
-                                let bordcur' # t := get arr fidx' t
-                                    ()       # t := set arr idx' bordcur' t
-                                  in assert_total (loop b cur patbyte bordcur' bs arr t)
-                 Just patbyte' =>
-                   case (S b) == (cast {to=Nat} patbyte') of
-                     True  =>
-                       let () # t := set arr idx' (S cur) t
-                         in assert_total (loop b cur patbyte bordcur bs arr t)
-                     False =>
-                       case cur == Z of
-                         True  =>
-                           let () # t := set arr idx' Z t
-                             in assert_total (loop b cur patbyte bordcur bs arr t)
-                         False =>
-                           let fidx # t := flattenIndex bordcur (S b) bs arr t
-                             in case fidx of
-                                  Nothing    =>
-                                    Nothing # t
-                                  Just fidx' =>
-                                    let bordcur' # t := get arr fidx' t
-                                        ()       # t := set arr idx' bordcur' t
-                                      in assert_total (loop b cur patbyte bordcur' bs arr t)
+      let idx       # t := flattenIndex cur (S b) bs arr t
+          Just idx'     := idx
+            | Nothing => Nothing # t
+          Just patbyte' := patbyte
+            | Nothing =>
+                let False := cur == Z
+                      | True =>
+                          let () # t := set arr idx' Z t
+                            in loop b cur patbyte bordcur bs arr t
+                    fidx # t := flattenIndex bordcur (S b) bs arr t
+                    Just fidx' := fidx
+                      | Nothing =>
+                          Nothing # t
+                    bordcur' # t := get arr fidx' t
+                    ()       # t := set arr idx' bordcur' t
+                  in loop b cur patbyte bordcur' bs arr t
+          False         := (S b) == (cast {to=Nat} patbyte')
+            | True =>
+                let () # t := set arr idx' (S cur) t
+                  in loop b cur patbyte bordcur bs arr t
+          False         := cur == Z
+            | True =>
+                let () # t := set arr idx' Z t
+                  in loop b cur patbyte bordcur bs arr t
+          fidx # t      := flattenIndex bordcur (S b) bs arr t
+          Just fidx'    := fidx
+            | Nothing =>
+                Nothing # t
+          bordcur' # t  := get arr fidx' t
+          ()       # t  := set arr idx' bordcur' t
+            in loop b cur patbyte bordcur' bs arr t
     fillState :  (cur : Nat)
               -> (bs : ByteString)
               -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
               -> (bord : MArray s (S (length bs)) Nat)
               -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
     fillState cur bs arr bord t =
-      case tryNatToFin cur of
-        Nothing   =>
-          Nothing # t
-        Just cur' =>
-          let bordcur # t := get bord cur' t
-              patbyte     := index cur bs
-              arr'    # t := loop 255 cur patbyte bordcur bs arr t
-            in case arr' of
-                 Nothing    =>
-                   Nothing # t
-                 Just arr'' =>
-                   Just arr'' # t
+      let Just cur' := tryNatToFin cur
+            | Nothing =>
+                Nothing # t
+          bordcur # t := get bord cur' t
+          patbyte     := index cur bs
+          arr'    # t := loop 255 cur patbyte bordcur bs arr t
+          Just arr'' := arr'
+            | Nothing =>
+                Nothing # t
+        in Just arr'' # t 
     go :  (state : Nat)
        -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
        -> (bord : MArray s (S (length bs)) Nat)
        -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
     go state bs arr bord t =
-      case state > (length bs) of
-        True  =>
-          Just arr # t
-        False =>
-          let arr' # t := fillState state bs arr bord t
-            in case arr' of
-                 Nothing    =>
-                   Nothing # t
-                 Just arr'' =>
-                   assert_total (go (S state) bs arr'' bord t)
+      let False    := state > (length bs)
+            | True =>
+                Just arr # t
+          arr' # t := fillState state bs arr bord t
+          Just arr'' := arr'
+            | Nothing =>
+                Nothing # t
+        in assert_total (go (S state) bs arr'' bord t)
 
 --------------------------------------------------------------------------------
 --          Boyer-Moore Preprocessing
@@ -347,11 +300,10 @@ occurrences :  (bs : ByteString)
 occurrences bs t =
   let arr  # t := marray1 256 (the Int 1) t
       arr' # t := go Z (length bs) bs arr t
-    in case arr' of
-         Nothing    =>
-           Nothing # t
-         Just arr'' =>
-           Just arr'' # t
+      Just arr'' := arr'
+        | Nothing =>
+            Nothing # t
+    in Just arr'' # t
   where
     go :  (i : Nat)
        -> (patend : Nat)
@@ -359,22 +311,19 @@ occurrences bs t =
        -> (arr : MArray s 256 Int)
        -> F1 s (Maybe (MArray s 256 Int))
     go i patend bs arr t =
-      case (S i) >= patend of
-        True  =>
-          Just arr # t
-        False =>
-          let i' := index i bs
-            in case i' of
-                 Nothing  =>
-                   Nothing # t
-                 Just i'' =>
-                   case tryNatToFin (cast {to=Nat} i'') of
-                     Nothing   =>
-                       Nothing # t
-                     Just i''' =>
-                       let () # t := set arr i''' (negate $ cast {to=Int} i) t
-                         in assert_total (go (plus i 1) patend bs arr t)
-
+      let False     := (S i) >= patend
+            | True =>
+                Just arr # t
+          i'        := index i bs
+          Just i''  := i'
+            | Nothing =>
+                Nothing # t
+          Just i''' := tryNatToFin (cast {to=Nat} i'')
+            | Nothing =>
+                Nothing # t
+          ()    # t := set arr i''' (negate $ cast {to=Int} i) t
+        in assert_total (go (plus i 1) patend bs arr t)
+          
 ||| Builds the table of suffix lengths for the given pattern.
 |||
 ||| The value at index `i` is the length of the longest common suffix
@@ -420,42 +369,36 @@ suffixLengths :  (bs : ByteString)
               -> {0 prf : So (not $ null bs)}
               -> F1 s (Maybe (MArray s (length bs) Int))
 suffixLengths bs t =
-  let arr # t := marray1 (length bs) (the Int 0) t
-    in case tryNatToFin (minus (length bs) 1) of
-         Nothing  =>
-           Nothing # t
-         Just idx =>
-           let ()   # t := set arr idx (cast {to=Int} (length bs)) t
-               arr' # t := noSuffix (cast {to=Int} (minus (length bs) 2)) bs arr t
-             in case arr' of
-                  Nothing    =>
-                    Nothing # t
-                  Just arr'' =>
-                    Just arr'' # t
+  let arr    # t := marray1 (length bs) (the Int 0) t
+      Just idx   := tryNatToFin (minus (length bs) 1)
+        | Nothing =>
+            Nothing # t
+      ()     # t := set arr idx (cast {to=Int} (length bs)) t
+      arr'   # t := noSuffix (cast {to=Int} (minus (length bs) 2)) bs arr t
+      Just arr'' := arr'
+        | Nothing =>
+            Nothing # t
+    in Just arr'' # t
   where
     dec :  (diff : Int)
         -> (j : Int)
         -> F1 s (Maybe Int)
     dec diff j t =
-      case j < 0 of
-        True  =>
-          Just j # t
-        False =>
-          let j' := index (cast {to=Nat} j) bs
-            in case j' of
-                 Nothing  =>
-                   Nothing # t
-                 Just j'' =>
-                   let j''' := index (cast {to=Nat} (j + diff)) bs
-                     in case j''' of
-                          Nothing    =>
-                            Nothing # t
-                          Just j'''' =>
-                            case j'' /= j'''' of
-                              True  =>
-                                Just j # t
-                              False =>
-                                assert_total (dec diff (j - 1) t)
+      let False      := j < 0
+            | True =>
+                Just j # t
+          j'         := index (cast {to=Nat} j) bs
+          Just j''   := j'
+            | Nothing =>
+                Nothing # t
+          j'''       := index (cast {to=Nat} (j + diff)) bs
+          Just j'''' := j'''
+            | Nothing =>
+                Nothing # t
+          False      := j'' /= j''''
+            | True =>
+                Just j # t
+        in assert_total (dec diff (j - 1) t)
     mutual
       suffixLoop :  (pre : Int)
                  -> (end : Int)
@@ -466,50 +409,41 @@ suffixLengths bs t =
       suffixLoop _   _   0   _  arr t =
         Just arr # t
       suffixLoop pre end idx bs arr t =
-        case pre < idx of
-          True  =>
-            let idx' := index (cast {to=Nat} idx) bs
-              in case idx' of
-                   Nothing    =>
-                     Nothing # t
-                   Just idx'' =>
-                     let idx''' := index (minus (length bs) 1) bs
-                       in case idx''' of
-                            Nothing      =>
-                              Nothing # t
-                            Just idx'''' =>
-                              case idx'' /= idx'''' of
-                                True  =>
-                                  case tryNatToFin (cast {to=Nat} idx) of
-                                    Nothing   =>
-                                      Nothing # t
-                                    Just idxs =>
-                                      let () # t := set arr idxs 0 t
-                                        in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
-                                False =>
-                                  case tryNatToFin (cast {to=Nat} end) of
-                                    Nothing   =>
-                                      Nothing # t
-                                    Just end' =>
-                                      let prevs # t := get arr end' t
-                                        in case tryNatToFin (cast {to=Nat} idx) of
-                                             Nothing   =>
-                                               Nothing # t
-                                             Just idxs =>
-                                               case (pre + prevs) < idx of
-                                                 True  =>
-                                                   let () # t := set arr idxs prevs t
-                                                     in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
-                                                 False =>
-                                                   let pri # t := dec (cast {to=Int} (minus (length bs) (cast {to=Nat} idx))) pre t
-                                                     in case pri of
-                                                          Nothing   =>
-                                                            Nothing # t
-                                                          Just pri' =>
-                                                            let () # t := set arr idxs (idx - pri') t
-                                                              in assert_total (suffixLoop pri' (cast {to=Int} (minus (length bs) 2)) (idx - 1) bs arr t)
-          False =>
-            noSuffix idx bs arr t
+        let True         := pre < idx
+              | False =>
+                  noSuffix idx bs arr t
+            idx'         := index (cast {to=Nat} idx) bs
+            Just idx''   := idx'
+              | Nothing =>
+                  Nothing # t
+            idx'''       := index (minus (length bs) 1) bs
+            Just idx'''' := idx'''
+              | Nothing =>
+                  Nothing # t
+            False        := idx'' /= idx''''
+              | True =>
+                  let Just idxs := tryNatToFin (cast {to=Nat} idx)
+                        | Nothing =>
+                            Nothing # t
+                      ()    # t := set arr idxs 0 t
+                    in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
+            Just end'    := tryNatToFin (cast {to=Nat} end)
+              | Nothing =>
+                  Nothing # t
+            prevs    # t := get arr end' t
+            Just idxs    := tryNatToFin (cast {to=Nat} idx)
+              | Nothing =>
+                  Nothing # t
+            False        := (pre + prevs) < idx
+              | True =>
+                  let () # t := set arr idxs prevs t
+                    in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
+            pri      # t := dec (cast {to=Int} (minus (length bs) (cast {to=Nat} idx))) pre t
+            Just pri'    := pri
+              | Nothing =>
+                  Nothing # t
+            ()       # t := set arr idxs (idx - pri') t
+          in assert_total (suffixLoop pri' (cast {to=Int} (minus (length bs) 2)) (idx - 1) bs arr t)
       noSuffix :  (i : Int)
                -> (bs : ByteString)
                -> (arr : MArray s (length bs) Int)
@@ -517,43 +451,36 @@ suffixLengths bs t =
       noSuffix 0 _  arr t =
         Just arr # t
       noSuffix i bs arr t =
-        let patati := index (cast {to=Nat} i) bs
-          in case patati of
-               Nothing      =>
-                 Nothing # t
-               Just patati' =>
-                 let patatend := index (minus (length bs) 1) bs
-                   in case patatend of
-                        Nothing        =>
-                          Nothing # t
-                        Just patatend' => 
-                          case patati' == patatend' of
-                            True  =>
-                              let diff      := (cast {to=Int} (minus (length bs) 1)) - i
-                                  nexti     := i - 1
-                                  previ # t := dec diff nexti t
-                                in case previ of
-                                     Nothing     =>
-                                       Nothing # t
-                                     Just previ' =>
-                                       case tryNatToFin (cast {to=Nat} i) of
-                                         Nothing =>
-                                           Nothing # t
-                                         Just i' =>
-                                           case previ' == nexti of
-                                             True  =>
-                                               let () # t := set arr i' 1 t
-                                                 in assert_total (noSuffix nexti bs arr t)
-                                             False =>
-                                               let () # t := set arr i' (i - previ') t
-                                                 in assert_total (suffixLoop previ' (cast {to=Int} (minus (length bs) 2)) nexti bs arr t)
-                            False =>
-                              case tryNatToFin (cast {to=Nat} i) of
-                                Nothing =>
-                                  Nothing # t
-                                Just i' =>
-                                  let () # t := set arr i' 0 t
-                                    in assert_total (noSuffix (i - 1) bs arr t)
+        let patati         := index (cast {to=Nat} i) bs
+            Just patati'   := patati
+              | Nothing =>
+                  Nothing # t
+            patatend       := index (minus (length bs) 1) bs
+            Just patatend' := patatend
+              | Nothing =>
+                  Nothing # t
+            True           := patati' == patatend'
+              | False =>
+                  let Just i' := tryNatToFin (cast {to=Nat} i)
+                        | Nothing =>
+                            Nothing # t
+                      ()  # t := set arr i' 0 t
+                    in assert_total (noSuffix (i - 1) bs arr t)
+            diff           := (cast {to=Int} (minus (length bs) 1)) - i
+            nexti          := i - 1
+            previ      # t := dec diff nexti t
+            Just previ'    := previ
+              | Nothing =>
+                  Nothing # t
+            Just i'        := tryNatToFin (cast {to=Nat} i)
+              | Nothing =>
+                  Nothing # t
+            False          := previ' == nexti
+              | True =>
+                  let () # t := set arr i' 1 t
+                    in assert_total (noSuffix nexti bs arr t)
+            ()         # t := set arr i' (i - previ') t
+          in assert_total (suffixLoop previ' (cast {to=Int} (minus (length bs) 2)) nexti bs arr t)
 
 ||| Table of suffix-shifts
 |||
@@ -608,23 +535,20 @@ suffixShifts :  (bs : ByteString)
              -> {0 prf : So (not $ null bs)}
              -> F1 s (Maybe (MArray s (length bs) Int))
 suffixShifts bs {prf} t =
-  let arr  # t := marray1 (length bs) (cast {to=Int} (length bs)) t
-      suff # t := suffixLengths bs {prf=prf} t
-    in case suff of
-         Nothing    =>
-           Nothing # t
-         Just suff' =>
-           let arr' # t := prefixShift (cast {to=Int} (minus (length bs) 2)) 0 bs suff' arr t
-             in case arr' of
-                  Nothing    =>
-                    Nothing # t
-                  Just arr'' =>
-                    let arr'' # t := suffixShift 0 bs suff' arr'' t
-                      in case arr'' of
-                           Nothing     =>
-                             Nothing # t
-                           Just arr''' =>
-                             Just arr''' # t
+  let arr      # t := marray1 (length bs) (cast {to=Int} (length bs)) t
+      suff     # t := suffixLengths bs {prf=prf} t
+      Just suff'   := suff
+        | Nothing =>
+            Nothing # t
+      arr'     # t := prefixShift (cast {to=Int} (minus (length bs) 2)) 0 bs suff' arr t
+      Just arr''   := arr'
+        | Nothing =>
+            Nothing # t
+      arr'''   # t := suffixShift 0 bs suff' arr'' t
+      Just arr'''' := arr'''
+        | Nothing =>
+            Nothing # t
+    in Just arr'''' # t
   where
     fillToShift :  (i : Int)
                 -> (shift : Int)
@@ -632,16 +556,14 @@ suffixShifts bs {prf} t =
                 -> (arr : MArray s (length bs) Int)
                 -> F1 s (Maybe (MArray s (length bs) Int))
     fillToShift i shift bs arr t =
-      case i == shift of
-        True =>
-          Just arr # t
-        False =>
-          case tryNatToFin (cast {to=Nat} i) of
-            Nothing =>
-              Nothing # t
-            Just i' =>
-              let () # t := set arr i' shift t
-                in assert_total (fillToShift (i + 1) shift bs arr t)
+      let False   := i == shift
+            | True =>
+                Just arr # t
+          Just i' := tryNatToFin (cast {to=Nat} i)
+            | Nothing =>
+                Nothing # t
+          ()  # t := set arr i' shift t
+        in assert_total (fillToShift (i + 1) shift bs arr t)
     prefixShift :  (idx : Int)
                 -> (j : Int)
                 -> (bs : ByteString)
@@ -649,47 +571,40 @@ suffixShifts bs {prf} t =
                 -> (arr : MArray s (length bs) Int)
                 -> F1 s (Maybe (MArray s (length bs) Int))
     prefixShift idx j bs suff arr t =
-      case idx < 0 of
-        True  =>
-          Just arr # t
-        False =>
-          case tryNatToFin (cast {to=Nat} idx) of
-            Nothing   =>
-              Nothing # t
-            Just idx' =>
-              let idx'' # t := get suff idx' t
-                in case idx'' == (idx + 1) of
-                     True =>
-                       let shift    := (cast {to=Int} (minus (length bs) 1)) - idx
-                           arr' # t := fillToShift j shift bs arr t
-                         in case arr' of
-                              Nothing   =>
-                                Nothing # t
-                              Just arr' =>
-                                assert_total (prefixShift (idx - 1) shift bs suff arr' t)                                      
-                     False =>
-                       assert_total (prefixShift (idx - 1) j bs suff arr t)
+      let False      := idx < 0
+            | True =>
+                Just arr # t
+          Just idx'  := tryNatToFin (cast {to=Nat} idx)
+            | Nothing =>
+                Nothing # t
+          idx''  # t := get suff idx' t
+          True       := idx'' ==  (idx + 1)
+            | False =>
+                assert_total (prefixShift (idx - 1) j bs suff arr t)
+          shift      := (cast {to=Int} (minus (length bs) 1)) - idx
+          arr'   # t := fillToShift j shift bs arr t
+          Just arr'' := arr'
+            | Nothing =>
+                Nothing # t
+        in assert_total (prefixShift (idx - 1) shift bs suff arr'' t)                                      
     suffixShift :  (idx : Int)
                 -> (bs : ByteString)
                 -> (suff : MArray s (length bs) Int)
                 -> (arr : MArray s (length bs) Int)
                 -> F1 s (Maybe (MArray s (length bs) Int))
     suffixShift idx bs suff arr t =
-      let patend := cast {to=Int} (minus (length bs) 1)
-        in case idx >= patend of
-             True  =>
-               Just arr # t
-             False =>
-               case tryNatToFin (cast {to=Nat} idx) of
-                 Nothing   =>
-                   Nothing # t
-                 Just idx' =>
-                   let idx'' # t := get suff idx' t
-                       target    := patend - idx''
-                     in case tryNatToFin (cast {to=Nat} target) of
-                          Nothing      =>
-                            Nothing # t
-                          Just target' =>
-                            let value  := patend - idx
-                                () # t := set arr target' value t
-                              in assert_total (suffixShift (idx + 1) bs suff arr t)
+      let patend       := cast {to=Int} (minus (length bs) 1)
+          False        := idx >= patend
+            | True =>
+                Just arr # t
+          Just idx'    := tryNatToFin (cast {to=Nat} idx)
+            | Nothing =>
+                Nothing # t
+          idx''    # t := get suff idx' t
+          target       := patend - idx''
+          Just target' := tryNatToFin (cast {to=Nat} target)
+            | Nothing =>
+                Nothing # t
+          value        := patend - idx
+          ()       # t := set arr target' value t
+        in assert_total (suffixShift (idx + 1) bs suff arr t)
