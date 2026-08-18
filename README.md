@@ -383,7 +383,7 @@ suffixShifts bs {prf} t =
           value        := patend - idx
           ()       # t := set arr target' value t
         in assert_total (suffixShift (idx + 1) bs suff arr t)
-'```
+```
 
 `suffixShifts` uses the lengths from `suffixLengths` to compute the actual suffix shifts.
 
