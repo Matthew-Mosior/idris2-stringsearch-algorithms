@@ -24,31 +24,26 @@ matcher :  Bool
         -> ByteString
         -> F1 s (Maybe (List Nat))
 matcher overlap pat target t =
-  case length pat == S Z of
-    True  =>
-      let patzero := index Z pat
-        in case patzero of
-             Nothing       =>
-               Nothing # t
-             Just patzero' =>
-               let headelem := elemIndex patzero' pat
-                 in case headelem of
-                      Nothing        =>
-                        Nothing # t
-                      Just headelem' =>
-                        Just (headelem' :: []) # t
-    False =>
-      let dfa # t := automaton pat t
-        in case dfa of
-             Nothing   =>
-               Nothing # t
-             Just dfa' =>
-               let match' # t := match Z Z pat target Lin dfa' overlap t
-                 in case match' of
-                      Nothing      =>
-                        Nothing # t
-                      Just match'' =>
-                        Just (match'' <>> []) # t
+  let False        := length pat == S Z
+        | True =>
+            let patzero        := index Z pat
+                Just patzero'  := patzero
+                  | Nothing =>
+                      Nothing # t
+                headelem       := elemIndex patzero' pat
+                Just headelem' := headelem
+                  | Nothing =>
+                      Nothing # t
+              in Just (headelem' :: []) # t
+      dfa # t      := automaton pat t
+      Just dfa'    := dfa
+        | Nothing =>
+            Nothing # t
+      match' # t   := match Z Z pat target Lin dfa' overlap t
+      Just match'' := match'
+        | Nothing =>
+            Nothing # t
+    in Just (match'' <>> []) # t
   where
     match :  (state : Nat)
           -> (idx : Nat)
@@ -59,54 +54,45 @@ matcher overlap pat target t =
           -> (overlap : Bool)
           -> F1 s (Maybe (SnocList Nat))
     match Z idx pat target final dfa overlap t =
-      case idx == length target of
-        True  =>
-          Just final # t
-        False =>
-          let idx' := index idx target
-            in case idx' of
-                 Nothing    =>
-                   Nothing # t
-                 Just idx'' =>
-                   let patzero := index Z pat
-                     in case patzero of
-                          Nothing       =>
-                            Nothing # t
-                          Just patzero' =>
-                            case idx'' == patzero' of
-                              True  =>
-                                assert_total (match (S 0) (S idx) pat target final dfa overlap t)
-                              False =>
-                                assert_total (match Z (S idx) pat target final dfa overlap t)
+      let False         := idx == length target
+            | True =>
+                Just final # t
+          idx'          := index idx target
+          Just idx''    := idx'
+            | Nothing =>
+                Nothing # t
+          patzero       := index Z pat
+          Just patzero' := patzero
+            | Nothing =>
+                Nothing # t
+          False         := idx'' == patzero'
+            | True =>
+                assert_total (match (S 0) (S idx) pat target final dfa overlap t)
+        in assert_total (match Z (S idx) pat target final dfa overlap t)
     match state idx pat target final dfa overlap t =
-      case idx == length target of
-        True  =>
-          Just final # t
-        False =>  
-          let idx' := index idx target
-            in case idx' of
-                 Nothing    =>
-                   Nothing # t
-                 Just idx'' =>
-                   let nstateidx := plus (mult state 256) (cast {to=Nat} idx'')
-                     in case tryNatToFin nstateidx of
-                          Nothing         =>
-                            Nothing # t
-                          Just nstateidx' =>
-                            let nstate # t := get dfa nstateidx' t
-                                nxtidx     := S idx
-                              in case nstate == length pat of
-                                   True  =>
-                                     let final'  := minus nxtidx (length pat)
-                                         final'' := final :< final'
-                                       in case overlap of
-                                            True  =>
-                                              let ams := S (minus nxtidx (length pat))
-                                                in assert_total (match Z ams pat target final'' dfa overlap t)
-                                            False =>
-                                              assert_total (match Z nxtidx pat target final'' dfa overlap t)
-                                   False =>
-                                     assert_total (match nstate nxtidx pat target final dfa overlap t)
+      let False           := idx == length target
+            | True =>
+                Just final # t
+          idx'            := index idx target
+          Just idx''      := idx'
+            | Nothing =>
+                Nothing # t
+          nstateidx       := plus (mult state 256) (cast {to=Nat} idx'')
+          Just nstateidx' := tryNatToFin nstateidx
+            | Nothing =>
+                Nothing # t
+          nstate      # t := get dfa nstateidx' t
+          nxtidx          := S idx
+          True            := nstate == length pat
+            | False =>
+                assert_total (match nstate nxtidx pat target final dfa overlap t)
+          final'          := minus nxtidx (length pat)
+          final''         := final :< final'
+          True            := overlap
+            | False =>
+                assert_total (match Z nxtidx pat target final'' dfa overlap t)
+          ams             := S (minus nxtidx (length pat))
+        in assert_total (match Z ams pat target final'' dfa overlap t)
 
 ||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||
@@ -140,12 +126,11 @@ matchDFA :  (pat : ByteString)
          -> {0 prftarget : So (not $ null target)}
          -> F1 s (Maybe (List Nat))
 matchDFA pat target {prfpat} {prftarget} t =
-  let matcher' # t := matcher False pat target t
-    in case matcher' of
-         Nothing        =>
-           Nothing # t
-         Just matcher'' =>
-           Just matcher'' # t
+  let matcher'   # t := matcher False pat target t
+      Just matcher'' := matcher'
+        | Nothing =>
+            Nothing # t
+    in Just matcher'' # t
 
 ||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||
@@ -176,12 +161,11 @@ indicesDFA :  (pat : ByteString)
            -> {0 prftarget : So (not $ null target)}
            -> F1 s (Maybe (List Nat))
 indicesDFA pat target {prfpat} {prftarget} t =
-  let matcher' # t := matcher True pat target t
-    in case matcher' of
-         Nothing        =>
-           Nothing # t
-         Just matcher'' =>
-           Just matcher'' # t
+  let matcher'   # t := matcher True pat target t
+      Just matcher'' := matcher'
+        | Nothing =>
+            Nothing # t
+    in Just matcher'' # t
 
 ||| Splits a ByteString at the first match of pat in target.
 |||
@@ -202,21 +186,18 @@ breakDFA :  (pat : ByteString)
          -> {0 prflength : So ((length target) >= (length pat))}
          -> F1 s (Maybe (ByteString, ByteString))
 breakDFA pat target {prfpat} {prftarget} {prflength} t =
-   let matcher' # t := matcher False pat target t
-     in case matcher' of
-          Nothing        =>
-            Nothing # t
-          Just matcher'' =>
-            case matcher'' of
-              []       =>
-                Just (target, empty) # t
-              (i :: _) =>
-                let target' := splitAt (cast {to=Nat} i) target
-                  in case target' of
-                       Nothing       =>
-                         Nothing # t
-                       Just target'' =>
-                         Just target'' # t
+   let matcher'   # t := matcher False pat target t
+       Just matcher'' := matcher'
+         | Nothing =>
+             Nothing # t
+       (i :: _)       := matcher''
+         | [] =>
+             Just (target, empty) # t
+       target'        := splitAt (cast {to=Nat} i) target
+       Just target''  := target'
+         | Nothing =>
+             Nothing # t
+     in Just target'' # t
 
 ||| Splits a ByteString after the first match of pat in target.
 |||
@@ -238,21 +219,18 @@ breakAfterDFA :  (pat : ByteString)
               -> {0 prflength : So ((length target) >= (length pat))}
               -> F1 s (Maybe (ByteString, ByteString))
 breakAfterDFA pat target {prfpat} {prftarget} {prflength} t =
-   let matcher' # t := matcher False pat target t
-     in case matcher' of
-          Nothing        =>
-            Nothing # t
-          Just matcher'' =>
-            case matcher'' of
-              []       =>
-                Just (target, empty) # t
-              (i :: _) =>
-                let target' := splitAt (plus (cast {to=Nat} i) (length pat)) target
-                  in case target' of
-                       Nothing       =>
-                         Nothing # t
-                       Just target'' =>
-                         Just target'' # t
+   let matcher'   # t := matcher False pat target t
+       Just matcher'' := matcher'
+         | Nothing =>
+             Nothing # t
+       (i :: _)       := matcher''
+         | [] =>
+             Just (target, empty) # t
+       target'        := splitAt (plus (cast {to=Nat} i) (length pat)) target
+       Just target''  := target'
+         | Nothing =>
+             Nothing # t
+     in Just target'' # t 
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of target, keeping the matching prefix of pat
@@ -276,52 +254,46 @@ splitKeepFrontDFA :  (pat : ByteString)
                   -> {0 prflength : So ((length target) >= (length pat))}
                   -> F1 s (Maybe (List ByteString))
 splitKeepFrontDFA pat target {prfpat} {prftarget} {prflength} t =
-  let splitter' # t := splitter pat target Lin t
-    in case splitter' of
-         Nothing         =>
-           Nothing # t
-         Just splitter'' =>
-           Just (splitter'' <>> []) # t
+  let splitter'   # t := splitter pat target Lin t
+      Just splitter'' := splitter'
+        | Nothing =>
+            Nothing # t
+    in Just (splitter'' <>> []) # t
   where
     psSplitter :  (pat : ByteString)
                -> (target : ByteString)
                -> (final : SnocList ByteString)
                -> F1 s (Maybe (SnocList ByteString))
     psSplitter pat target final t =
-      let matcher' # t := matcher False pat (drop (length pat) target) t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   let length' := plus (cast {to=Nat} i) (length pat)
-                       final'  := final :< (take length' target)
-                     in assert_total (psSplitter pat (drop length' target) final' t)
+      let matcher'   # t := matcher False pat (drop (length pat) target) t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          length'        := plus (cast {to=Nat} i) (length pat)
+          final'         := final :< (take length' target)
+        in assert_total (psSplitter pat (drop length' target) final' t)
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   case i == 0 of
-                     True  =>
-                       assert_total (psSplitter pat target final t)
-                     False =>
-                       let final' := final :< (take (cast {to=Nat} i) target)
-                         in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          False          := i == Z
+            | True =>
+                assert_total (psSplitter pat target final t)
+          final'         := final :< (take (cast {to=Nat} i) target)
+        in assert_total (psSplitter pat (drop (cast {to=Nat} i) target) final' t)
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of pat inside target, keeping the matching
@@ -351,31 +323,28 @@ splitKeepEndDFA :  (pat : ByteString)
                 -> {0 prflength : So ((length target) >= (length pat))}
                 -> F1 s (Maybe (List ByteString))
 splitKeepEndDFA pat target {prfpat} {prftarget} {prflength} t =
-  let splitter' # t := splitter pat target Lin t
-    in case splitter' of
-         Nothing         =>
-           Nothing # t
-         Just splitter'' =>
-           Just (splitter'' <>> []) # t
+  let splitter'   # t := splitter pat target Lin t
+      Just splitter'' := splitter'
+        | Nothing =>
+            Nothing # t
+    in Just (splitter'' <>> []) # t
   where
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   let length' := plus (cast {to=Nat} i) (length pat)
-                       final'  := final :< (take length' target)
-                     in assert_total (splitter pat (drop length' target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          length'        := plus (cast {to=Nat} i) (length pat)
+          final'         := final :< (take length' target)
+        in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Splits a ByteString into a list of pieces according to repeated
 ||| matches of pat inside target, dropping each matched
@@ -407,31 +376,28 @@ splitDropDFA :  (pat : ByteString)
              -> {0 prflength : So ((length target) >= (length pat))}
              -> F1 s (Maybe (List ByteString))
 splitDropDFA pat target {prfpat} {prftarget} {prflength} t =
-  let splitter' # t := splitter pat target Lin t
-    in case splitter' of
-         Nothing         =>
-           Nothing # t
-         Just splitter'' =>
-           Just (splitter'' <>> []) # t
+  let splitter'   # t := splitter pat target Lin t
+      Just splitter'' := splitter'
+        | Nothing =>
+            Nothing # t
+    in Just (splitter'' <>> []) # t
   where
     splitter :  (pat : ByteString)
              -> (target : ByteString)
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     splitter pat target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   let length' := plus (cast {to=Nat} i) (length pat)
-                       final'  := final :< (take (cast {to=Nat} i) target)
-                     in assert_total (splitter pat (drop length' target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          length'        := plus (cast {to=Nat} i) (length pat)
+          final'         := final :< (take (cast {to=Nat} i) target)
+        in assert_total (splitter pat (drop length' target) final' t)
 
 ||| Replaces all non-overlapping occurrences of a pattern in a ByteString
 ||| using the deterministic-finite-automaton matcher.
@@ -462,12 +428,11 @@ replaceDFA :  (pat : ByteString)
            -> {0 prflength : So ((length target) >= (length pat))}
            -> F1 s (Maybe (List ByteString))
 replaceDFA pat sub target {prfpat} {prftarget} {prflength} t =
-  let replacer' # t := replacer pat sub target Lin t
-    in case replacer' of
-         Nothing         =>
-           Nothing # t
-         Just replacer'' =>
-           Just (replacer'' <>> []) # t
+  let replacer'   # t := replacer pat sub target Lin t
+      Just replacer'' := replacer'
+        | Nothing =>
+            Nothing # t
+    in Just (replacer'' <>> []) # t
   where
     replacer :  (pat : ByteString)
              -> (sub : ByteString)
@@ -475,31 +440,26 @@ replaceDFA pat sub target {prfpat} {prftarget} {prflength} t =
              -> (final : SnocList ByteString)
              -> F1 s (Maybe (SnocList ByteString))
     replacer pat sub target final t =
-      let matcher' # t := matcher False pat target t
-        in case matcher' of
-             Nothing        =>
-               Nothing # t
-             Just matcher'' =>
-               case matcher'' of
-                 []       =>
-                   let final' := final :< target
-                     in Just final' # t
-                 (i :: _) =>
-                   case i of
-                     0 =>
-                       case null sub of
-                         True  =>
-                           assert_total (replacer pat sub (drop (length pat) target) final t)
-                         False =>
-                           let final' := final :< sub
-                             in assert_total (replacer pat sub (drop (length pat) target) final') t
-                     _ =>
-                       case null sub of
-                         True  =>
-                           let length' := plus (cast {to=Nat} i) (length pat)
-                               final'  := final :< (take (cast {to=Nat} i) target)
-                             in assert_total (replacer pat sub (drop length' target) final' t)
-                         False =>
-                           let length' := plus (cast {to=Nat} i) (length pat)
-                               final'  := final :< (take (cast {to=Nat} i) target) :< sub
-                             in assert_total (replacer pat sub (drop length' target) final' t)
+      let matcher'   # t := matcher False pat target t
+          Just matcher'' := matcher'
+            | Nothing =>
+                Nothing # t
+          (i :: _)       := matcher''
+            | [] =>
+                let final' := final :< target
+                  in Just final' # t
+          Z              := i
+            | _ =>
+                let False := null sub
+                      | True =>
+                          let length' := plus (cast {to=Nat} i) (length pat)
+                              final'  := final :< (take (cast {to=Nat} i) target)
+                            in assert_total (replacer pat sub (drop length' target) final' t)
+                    length' := plus (cast {to=Nat} i) (length pat)
+                    final'  := final :< (take (cast {to=Nat} i) target) :< sub
+                  in assert_total (replacer pat sub (drop length' target) final' t)
+          False          := null sub
+            | True =>
+                assert_total (replacer pat sub (drop (length pat) target) final t)
+          final'         := final :< sub
+        in assert_total (replacer pat sub (drop (length pat) target) final') t
