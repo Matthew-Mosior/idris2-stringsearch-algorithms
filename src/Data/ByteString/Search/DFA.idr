@@ -24,75 +24,85 @@ matcher :  Bool
         -> ByteString
         -> F1 s (Maybe (List Nat))
 matcher overlap pat target t =
-  let False        := length pat == S Z
+  let patlen       := length pat
+      targetlen    := length target
+      False        := patlen == S Z
         | True =>
-            let patzero        := index Z pat
-                Just patzero'  := patzero
+            let Just patzero := index Z pat
                   | Nothing =>
                       Nothing # t
-                headelem       := elemIndex patzero' pat
+                headelem := elemIndex patzero target
                 Just headelem' := headelem
                   | Nothing =>
                       Nothing # t
               in Just (headelem' :: []) # t
-      dfa # t      := automaton pat t
+      Just patzero := index Z pat
+        | Nothing =>
+            Nothing # t
+      dfa      # t := automaton pat t
       Just dfa'    := dfa
         | Nothing =>
             Nothing # t
-      match' # t   := match Z Z pat target Lin dfa' overlap t
-      Just match'' := match'
+      result  # t := matchZero Z Lin patlen targetlen patzero dfa' t
+      Just result' := result
         | Nothing =>
             Nothing # t
-    in Just (match'' <>> []) # t
+    in Just (result' <>> []) # t
   where
-    match :  (state : Nat)
-          -> (idx : Nat)
-          -> (pat : ByteString)
-          -> (target : ByteString)
-          -> (final : SnocList Nat)
-          -> (dfa : MArray s (mult (plus (length pat) 1) 256) Nat)
-          -> (overlap : Bool)
-          -> F1 s (Maybe (SnocList Nat))
-    match Z idx pat target final dfa overlap t =
-      let False         := idx == length target
-            | True =>
-                Just final # t
-          idx'          := index idx target
-          Just idx''    := idx'
-            | Nothing =>
-                Nothing # t
-          patzero       := index Z pat
-          Just patzero' := patzero
-            | Nothing =>
-                Nothing # t
-          False         := idx'' == patzero'
-            | True =>
-                assert_total (match (S 0) (S idx) pat target final dfa overlap t)
-        in assert_total (match Z (S idx) pat target final dfa overlap t)
-    match state idx pat target final dfa overlap t =
-      let False           := idx == length target
-            | True =>
-                Just final # t
-          idx'            := index idx target
-          Just idx''      := idx'
-            | Nothing =>
-                Nothing # t
-          nstateidx       := plus (mult state 256) (cast {to=Nat} idx'')
-          Just nstateidx' := tryNatToFin nstateidx
-            | Nothing =>
-                Nothing # t
-          nstate      # t := get dfa nstateidx' t
-          nxtidx          := S idx
-          True            := nstate == length pat
-            | False =>
-                assert_total (match nstate nxtidx pat target final dfa overlap t)
-          final'          := minus nxtidx (length pat)
-          final''         := final :< final'
-          True            := overlap
-            | False =>
-                assert_total (match Z nxtidx pat target final'' dfa overlap t)
-          ams             := S (minus nxtidx (length pat))
-        in assert_total (match Z ams pat target final'' dfa overlap t)
+    mutual
+      matchZero :  (idx : Nat)
+                -> (final : SnocList Nat)
+                -> (patlen : Nat)
+                -> (targetlen : Nat)
+                -> (patzero : Bits8)
+                -> (dfa : MArray s (mult (plus (length pat) 1) 256) Nat)
+                -> F1 s (Maybe (SnocList Nat))
+      matchZero idx final patlen targetlen patzero dfa t =
+        let False     := idx == targetlen
+              | True =>
+                  Just final # t
+            Just byte := index idx target
+              | Nothing =>
+                  Nothing # t
+            nxtidx    := S idx
+            False     := byte == patzero
+              | True =>
+                  assert_total (matchState (S Z) nxtidx final patlen targetlen patzero dfa t)
+          in assert_total (matchZero nxtidx final patlen targetlen patzero dfa t)
+      matchState :  (state : Nat)
+                 -> (idx : Nat)
+                 -> (final : SnocList Nat)
+                 -> (patlen : Nat)
+                 -> (targetlen : Nat)
+                 -> (patzero : Bits8)
+                 -> (dfa : MArray s (mult (plus (length pat) 1) 256) Nat)
+                 -> F1 s (Maybe (SnocList Nat))
+      matchState state idx final patlen targetlen patzero dfa t =
+        let False        := idx == targetlen
+              | True =>
+                  Just final # t
+            Just byte    := index idx target
+              | Nothing =>
+                  Nothing # t
+            statebase    := mult state 256
+            dfaidx       := plus statebase (cast {to=Nat} byte)
+            Just dfaidx' := tryNatToFin dfaidx
+              | Nothing =>
+                  Nothing # t
+            nstate   # t := get dfa dfaidx' t
+            nxtidx       := S idx
+            False        := nstate == patlen
+              | True =>
+                  let matchidx := minus nxtidx patlen
+                      final'   := final :< matchidx
+                      False    := overlap
+                        | True =>
+                            assert_total (matchZero (S matchidx) final' patlen targetlen patzero dfa t)
+                    in assert_total (matchZero nxtidx final' patlen targetlen patzero dfa t)
+            False        := nstate == Z
+              | True =>
+                  assert_total (matchZero nxtidx final patlen targetlen patzero dfa t)
+          in assert_total (matchState nstate nxtidx final patlen targetlen patzero dfa t)
 
 ||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||

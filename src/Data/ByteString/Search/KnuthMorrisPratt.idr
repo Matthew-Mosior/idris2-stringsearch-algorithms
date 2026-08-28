@@ -24,112 +24,124 @@ matcher :  Bool
         -> List ByteString
         -> F1 s (Maybe (List Nat))
 matcher overlap pat chunks t =
-  let bords     # t := kmpBorders pat t
-      Just bords'   := bords
+  let patlen := length pat
+      Just patzero := index Z pat
         | Nothing =>
             Nothing # t
-      searcher' # t := searcher Z Z pat chunks Lin bords' overlap t
-      Just searcher'' := searcher'
+      bords # t := kmpBorders pat t
+      Just bords' := bords
         | Nothing =>
             Nothing # t
-    in Just (searcher'' <>> []) # t
+      Just patlenfin := tryNatToFin patlen
+        | Nothing =>
+            Nothing # t
+      fullbord # t := get bords' patlenfin t
+      result # t := searcher Z Z chunks Lin patlen patzero fullbord bords' t
+      Just result' := result
+        | Nothing =>
+            Nothing # t
+    in Just (result' <>> []) # t
   where
     mutual
+      searcher :  (prior : Nat)
+               -> (patpos : Nat)
+               -> (strs : List ByteString)
+               -> (final : SnocList Nat)
+               -> (patlen : Nat)
+               -> (patzero : Bits8)
+               -> (fullbord : Nat)
+               -> (bords : MArray s (S (length pat)) Nat)
+               -> F1 s (Maybe (SnocList Nat))
+      searcher _     _      []            final _      _       _        _     t =
+        Just final # t
+      searcher prior patpos (str :: rest) final patlen patzero fullbord bords t =
+        let strlen := length str
+            False  := patpos == Z
+              | True =>
+                  assert_total (checkHead prior Z str strlen rest final patlen patzero fullbord bords t)
+          in assert_total (findMatch prior patpos Z str strlen rest final patlen patzero fullbord bords t)
+      checkHead :  (prior : Nat)
+                -> (stri : Nat)
+                -> (str : ByteString)
+                -> (strlen : Nat)
+                -> (rest : List ByteString)
+                -> (final : SnocList Nat)
+                -> (patlen : Nat)
+                -> (patzero : Bits8)
+                -> (fullbord : Nat)
+                -> (bords : MArray s (S (length pat)) Nat)
+                -> F1 s (Maybe (SnocList Nat))
+      checkHead prior stri str strlen rest final patlen patzero fullbord bords t =
+        let False := stri == strlen
+              | True =>
+                  assert_total (searcher (plus prior strlen) Z rest final patlen patzero fullbord bords t)
+            Just strbyte := index stri str
+              | Nothing =>
+                  Nothing # t
+            nxtstri := S stri
+            False := strbyte == patzero
+              | True =>
+                  assert_total (findMatch prior (S Z) nxtstri str strlen rest final patlen patzero fullbord bords t)
+          in assert_total (checkHead prior nxtstri str strlen rest final patlen patzero fullbord bords t)
       findMatch :  (prior : Nat)
                 -> (pati : Nat)
                 -> (stri : Nat)
-                -> (pat : ByteString)
-                -> (strs : List ByteString)
+                -> (str : ByteString)
+                -> (strlen : Nat)
+                -> (rest : List ByteString)
                 -> (final : SnocList Nat)
+                -> (patlen : Nat)
+                -> (patzero : Bits8)
+                -> (fullbord : Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
-                -> (overlap : Bool)
                 -> F1 s (Maybe (SnocList Nat))
-      findMatch _     _    _    _   []               final _     _       t =
-        Just final # t
-      findMatch prior pati stri pat strs@(str::rest) final bords overlap t =
-        let patlen       := length pat
-            False        := pati == patlen
+      findMatch prior pati stri str strlen rest final patlen patzero fullbord bords t =
+        let False := pati == patlen
               | True =>
-                  let True         := overlap
-                        | False =>
-                            let final'  := minus (plus prior stri) patlen
-                                final'' := final :< final'
-                              in assert_total (checkHead prior stri pat strs final'' bords overlap t)
-                      Just patlen' := tryNatToFin patlen
-                        | Nothing =>
-                            Nothing # t
-                      final'       := minus (plus prior stri) patlen
-                      ami      # t := get bords patlen' t
-                      False        := ami == Z
+                  let matchidx := minus (plus prior stri) patlen
+                      final'   := final :< matchidx
+                      False    := overlap
                         | True =>
-                            let final'' := final :< final'
-                              in assert_total (checkHead prior stri pat strs final'' bords overlap t)
-                      final'' := final :< final'
-                    in assert_total (findMatch prior ami stri pat strs final'' bords overlap t)
-            strlen       := length str            
-            False        := stri == strlen
+                            let False := fullbord == Z
+                                  | True =>
+                                      assert_total (checkHead prior stri str strlen rest final' patlen patzero fullbord bords t)
+                              in assert_total (findMatch prior fullbord stri str strlen rest final' patlen patzero fullbord bords t)
+                    in assert_total (checkHead prior stri str strlen rest final' patlen patzero fullbord bords t)
+            False := stri == strlen
               | True =>
-                  assert_total (searcher (plus prior strlen) pati pat rest final bords overlap t)
-            pati'        := index pati pat
-            Just pati''  := pati'
+                  assert_total (searcher (plus prior strlen) pati rest final patlen patzero fullbord bords t)
+            Just strbyte := index stri str
               | Nothing =>
                   Nothing # t
-            stri'        := index stri str
-            Just stri''  := stri'
-              | Nothing =>
-                  Nothing # t
-            False        := stri'' == pati''
-              | True =>
-                  assert_total (findMatch prior (S pati) (S stri) pat strs final bords overlap t)
-            Just pati''' := tryNatToFin pati
-              | Nothing =>
-                  Nothing # t
-            pati'''' # t := get bords pati''' t
-            False        := pati'''' == Z
-              | True =>
-                  assert_total (checkHead prior (S stri) pat strs final bords overlap t)
-          in assert_total (findMatch prior pati'''' stri pat strs final bords overlap t)
-      checkHead :  (prior : Nat)
+          in assert_total (compareAt prior pati stri strbyte str strlen rest final patlen patzero fullbord bords t)
+      compareAt :  (prior : Nat)
+                -> (pati : Nat)
                 -> (stri : Nat)
-                -> (pat : ByteString)
-                -> (strs : List ByteString)
+                -> (strbyte : Bits8)
+                -> (str : ByteString)
+                -> (strlen : Nat)
+                -> (rest : List ByteString)
                 -> (final : SnocList Nat)
+                -> (patlen : Nat)
+                -> (patzero : Bits8)
+                -> (fullbord : Nat)
                 -> (bords : MArray s (S (length pat)) Nat)
-                -> (overlap : Bool)
                 -> F1 s (Maybe (SnocList Nat))
-      checkHead _     _    _   []               final _     _       t =
-        Just final # t
-      checkHead prior stri pat strs@(str::rest) final bords overlap t =
-        let strlen        := length str
-            False         := stri == strlen
-              | True =>
-                  assert_total (searcher (plus prior strlen) Z pat rest final bords overlap t)
-            stri'         := index stri str
-            Just stri''   := stri'
-              | Nothing =>
-                  Nothing # t
-            patzero       := index Z pat
-            Just patzero' := patzero
-              | Nothing =>
-                  Nothing # t
-            False         := stri'' == patzero'
-              | True =>
-                  assert_total (findMatch prior (S Z) (S stri) pat strs final bords overlap t)
-          in assert_total (checkHead prior (S stri) pat strs final bords overlap t)
-      searcher :  (prior : Nat)
-               -> (patpos : Nat)
-               -> (pat : ByteString)
-               -> (strs : List ByteString)
-               -> (final : SnocList Nat)
-               -> (bords : MArray s (S (length pat)) Nat)
-               -> (overlap : Bool)
-               -> F1 s (Maybe (SnocList Nat))
-      searcher _     _      _   []   final _     _       t =
-        Just final # t
-      searcher prior Z      pat strs final bords overlap t =
-        assert_total (checkHead prior Z pat strs final bords overlap t)
-      searcher prior patpos pat strs final bords overlap t =
-        assert_total (findMatch prior patpos Z pat strs final bords overlap t)
+      compareAt prior pati stri strbyte str strlen rest final patlen patzero fullbord bords t =
+          let Just patbyte := index pati pat
+                | Nothing =>
+                    Nothing # t
+              False := strbyte == patbyte
+                | True =>
+                    assert_total (findMatch prior (S pati) (S stri) str strlen rest final patlen patzero fullbord bords t)
+              Just patfin := tryNatToFin pati
+                | Nothing =>
+                    Nothing # t
+              fallback # t := get bords patfin t
+              False := fallback == Z
+                | True =>
+                    assert_total (checkHead prior (S stri) str strlen rest final patlen patzero fullbord bords t)
+            in assert_total (compareAt prior fallback stri strbyte str strlen rest final patlen patzero fullbord bords t)
 
 ||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
 |||
