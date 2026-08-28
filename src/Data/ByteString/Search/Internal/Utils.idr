@@ -41,52 +41,54 @@ export
 kmpBorders :  (bs : ByteString)
            -> F1 s (Maybe (MArray s (S (length bs)) Nat))
 kmpBorders bs t =
-  let arr  # t := unsafeMArray1 (S (length bs)) t
-      arr' # t := go (length bs) bs arr t
-    in arr' # t
+  let arr   # t := unsafeMArray1 (S (length bs)) t
+      Just zero := tryNatToFin Z
+        | Nothing => Nothing # t
+      ()    # t := set arr zero Z t
+    in go (S Z) Z bs arr t
   where
-    dec :  (i : Nat)
-        -> (j : Nat)
-        -> (bs : ByteString)
-        -> (arr : MArray s (S (length bs)) Nat)
-        -> F1 s (Maybe Nat)
-    dec _ Z _  _   t =
-      Just Z # t
-    dec i j bs arr t =
-      let Just j'  := tryNatToFin j
-            | Nothing => Nothing # t 
-          j'' # t  := get arr j' t
-          wj       := index j'' bs
-          Just wj' := wj
-            | Nothing => Nothing # t
-          wi       := index (minus i 1) bs
-          Just wi' := wi
-            | Nothing => Nothing # t
-          False    := (cast {to=Nat} wi') == (cast {to=Nat} wj')
-            | True => Just (plus j'' 1) # t
-          False    := j'' == 0
-            | True => Just Z # t
-        in assert_total (dec i j'' bs arr t)
-    go :  (i : Nat)
-       -> (bs : ByteString)
-       -> (arr : MArray s (S (length bs)) Nat)
-       -> F1 s (Maybe (MArray s (S (length bs)) Nat))
-    go Z     _ arr t =
-      let Just zero := tryNatToFin 0
-            | Nothing => Nothing # t
-          ()    # t := set arr zero 0 t
-        in Just arr # t
-    go (S i) bs arr t =
-      let i'   # t := assert_total (go i bs arr t)
-          Just   _ := i'
-            | Nothing => Nothing # t
-          Just i'' := tryNatToFin (S i)
-            | Nothing => Nothing # t
-          j    # t := dec (S i) i bs arr t
-          Just j' := j
-            | Nothing => Nothing # t
-          ()   # t := set arr i'' j' t
-        in Just arr # t
+    mutual
+      advance :  (i : Nat)
+              -> (j : Nat)
+              -> (wi : Nat)
+              -> (bs : ByteString)
+              -> (arr : MArray s (S (length bs)) Nat)
+              -> F1 s (Maybe (MArray s (S (length bs)) Nat))
+      advance i j wi bs arr t =
+        let Just wj := index j bs
+              | Nothing => Nothing # t
+            wj' := cast {to=Nat} wj
+            False := wi == wj'
+              | True =>
+                  let j'       := S j
+                      Just fi' := tryNatToFin (S i)
+                        | Nothing => Nothing # t
+                      ()   # t := set arr fi' j' t
+                    in assert_total (go (S i) j' bs arr t)
+            False := j == 0
+              | True =>
+                  let Just fi' := tryNatToFin (S i)
+                        | Nothing => Nothing # t
+                      ()   # t := set arr fi' Z t
+                    in assert_total (go (S i) Z bs arr t)
+            Just fj := tryNatToFin j
+              | Nothing => Nothing # t
+            j' # t := get arr fj t
+          in assert_total (advance i j' wi bs arr t)
+      go :  (i : Nat)
+         -> (j : Nat)
+         -> (bs : ByteString)
+         -> (arr : MArray s (S (length bs)) Nat)
+         -> F1 s (Maybe (MArray s (S (length bs)) Nat))
+      go i j bs arr t =
+        let False   := i == length bs
+              | True =>
+                  Just arr # t
+            Just wi := index i bs
+              | Nothing => Nothing # t
+            wi'     := cast {to=Nat} wi
+          in advance i j wi' bs arr t
+
 
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||
@@ -136,126 +138,88 @@ export
 automaton :  (bs : ByteString)
           -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
 automaton bs t =
-  let arr    # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
-      bord   # t := kmpBorders bs t
+  let arr  # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
+      bord # t := kmpBorders bs t
       Just bord' := bord
         | Nothing => Nothing # t
-      arr'   # t := go Z bs arr bord' t
-      Just arr'' := arr'
-        | Nothing => Nothing # t
-    in Just arr'' # t 
+    in go Z arr bord' t
   where
-    flattenIndex :  (st : Nat)
-                 -> (byte : Nat)
-                 -> (bs : ByteString)
-                 -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-                 -> F1 s (Maybe (Fin (mult (plus (length bs) 1) 256)))
-    flattenIndex st byte bs arr t =
-      let idx := plus (mult st 256) byte
-          Just idx' := tryNatToFin idx
-            | Nothing => Nothing # t
-        in Just idx' # t
-    loop :  (b : Nat)
-         -> (cur : Nat)
-         -> (patbyte : Maybe Bits8)
-         -> (bordcur : Nat)
-         -> (bs : ByteString)
-         -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-         -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
-    loop Z     cur patbyte bordcur bs arr t =
-      let idx       # t := flattenIndex cur Z bs arr t
-          Just idx'     := idx
-            | Nothing => Nothing # t
-          Just patbyte' := patbyte
-            | Nothing =>
-                let False := cur == Z
-                      | True =>
-                          let () # t := set arr idx' Z t
-                            in Just arr # t
-                    fidx # t := flattenIndex bordcur Z bs arr t
-                    Just fidx' := fidx
-                      | Nothing =>
-                          Nothing # t
-                    bordcur' # t := get arr fidx' t
-                    ()       # t := set arr idx' bordcur' t
-                  in Just arr # t
-          False         := Z == (cast {to=Nat} patbyte')
-            | True =>
-                let () # t := set arr idx' (S cur) t
-                  in Just arr # t
-          False         := cur == Z
-            | True =>
-                let () # t := set arr idx' Z t
-                  in Just arr # t
-          fidx # t      := flattenIndex bordcur Z bs arr t
-          Just fidx'    := fidx
-            | Nothing =>
-                Nothing # t
-          bordcur' # t  := get arr fidx' t
-          ()       # t  := set arr idx' bordcur' t
-            in Just arr # t
-    loop (S b) cur patbyte bordcur bs arr t =
-      let idx       # t := flattenIndex cur (S b) bs arr t
-          Just idx'     := idx
-            | Nothing => Nothing # t
-          Just patbyte' := patbyte
-            | Nothing =>
-                let False := cur == Z
-                      | True =>
-                          let () # t := set arr idx' Z t
-                            in loop b cur patbyte bordcur bs arr t
-                    fidx # t := flattenIndex bordcur (S b) bs arr t
-                    Just fidx' := fidx
-                      | Nothing =>
-                          Nothing # t
-                    bordcur' # t := get arr fidx' t
-                    ()       # t := set arr idx' bordcur' t
-                  in loop b cur patbyte bordcur' bs arr t
-          False         := (S b) == (cast {to=Nat} patbyte')
-            | True =>
-                let () # t := set arr idx' (S cur) t
-                  in loop b cur patbyte bordcur bs arr t
-          False         := cur == Z
-            | True =>
-                let () # t := set arr idx' Z t
-                  in loop b cur patbyte bordcur bs arr t
-          fidx # t      := flattenIndex bordcur (S b) bs arr t
-          Just fidx'    := fidx
-            | Nothing =>
-                Nothing # t
-          bordcur' # t  := get arr fidx' t
-          ()       # t  := set arr idx' bordcur' t
-            in loop b cur patbyte bordcur' bs arr t
-    fillState :  (cur : Nat)
-              -> (bs : ByteString)
+    fillState :  (state : Nat)
+              -> (byte : Nat)
+              -> (patbyte : Maybe Nat)
+              -> (bordcur : Nat)
+              -> (statebase : Nat)
               -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-              -> (bord : MArray s (S (length bs)) Nat)
               -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
-    fillState cur bs arr bord t =
-      let Just cur' := tryNatToFin cur
+    fillState state byte patbyte bordcur statebase arr t =
+      let idx           := plus statebase byte
+          Just idx'     := the (Maybe (Fin (mult (plus (length bs) 1) 256))) (tryNatToFin idx)
             | Nothing =>
                 Nothing # t
-          bordcur # t := get bord cur' t
-          patbyte     := index cur bs
-          arr'    # t := loop 255 cur patbyte bordcur bs arr t
-          Just arr'' := arr'
+          Just patbyte' := patbyte
+            | Nothing =>
+                let False        := state == Z
+                      | True =>
+                          let () # t := set arr idx' Z t
+                              False  := byte == Z
+                                | True =>
+                                    Just arr # t
+                            in assert_total (fillState state (minus byte 1) patbyte bordcur statebase arr t)
+                    fidx         := plus (mult bordcur 256) byte
+                    Just fidx'   := tryNatToFin fidx
+                      | Nothing => Nothing # t
+                    bordcur' # t := get arr fidx' t
+                    ()       # t := set arr idx' bordcur' t
+                    False  := byte == Z
+                      | True =>
+                          Just arr # t
+                  in assert_total (fillState state (minus byte 1) patbyte bordcur' statebase arr t)
+          False         := byte == patbyte'
+            | True =>
+                let () # t := set arr idx' (S state) t
+                    False  := byte == Z
+                      | True =>
+                          Just arr # t
+                  in assert_total (fillState state (minus byte 1) patbyte bordcur statebase arr t)
+          False         := state == Z
+            | True =>
+                let () # t := set arr idx' Z t
+                    False  := byte == Z
+                      | True =>
+                          Just arr # t
+                  in assert_total (fillState state (minus byte 1) patbyte bordcur statebase arr t)
+          fidx          := plus (mult bordcur 256) byte
+          Just fidx'    := tryNatToFin fidx
             | Nothing =>
                 Nothing # t
-        in Just arr'' # t 
+          bordcur' # t  := get arr fidx' t
+          ()       # t  := set arr idx' bordcur' t
+          False         := byte == Z
+            | True =>
+                Just arr # t
+        in assert_total (fillState state (minus byte 1) patbyte bordcur' statebase arr t)
     go :  (state : Nat)
-       -> (bs : ByteString)
        -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
        -> (bord : MArray s (S (length bs)) Nat)
        -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
-    go state bs arr bord t =
-      let False    := state > (length bs)
+    go state arr bord t =
+      let False        := state > length bs
             | True =>
                 Just arr # t
-          arr' # t := fillState state bs arr bord t
-          Just arr'' := arr'
-            | Nothing =>
-                Nothing # t
-        in assert_total (go (S state) bs arr'' bord t)
+          Just state'  := tryNatToFin state
+           | Nothing => Nothing # t
+          bordcur # t  := get bord state' t
+          patbyte      :=
+            case index state bs of
+              Nothing =>
+                Nothing
+              Just b  =>
+                Just (cast {to=Nat} b)
+          statebase    := mult state 256
+          arr'     # t := fillState state 255 patbyte bordcur statebase arr t
+          Just arr''   := arr'
+           | Nothing => Nothing # t
+        in assert_total (go (S state) arr'' bord t)
 
 --------------------------------------------------------------------------------
 --          Boyer-Moore Preprocessing
@@ -322,7 +286,7 @@ occurrences bs t =
             | Nothing =>
                 Nothing # t
           ()    # t := set arr i''' (negate $ cast {to=Int} i) t
-        in assert_total (go (plus i 1) patend bs arr t)
+        in assert_total (go (S i) patend bs arr t)
           
 ||| Builds the table of suffix lengths for the given pattern.
 |||
