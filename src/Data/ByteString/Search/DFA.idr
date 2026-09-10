@@ -1,13 +1,12 @@
 ||| Fast deterministic finite automaton (DFA) search of ByteStrings
 module Data.ByteString.Search.DFA
 
-import Data.ByteString.Search.Internal.Utils
-import Data.ByteString.Search.DFA.Internal
-
 import Data.Array.Core
 import Data.Array.Mutable
 import Data.Bits
 import Data.ByteString
+import Data.ByteString.Search.DFA.Internal
+import Data.ByteString.Search.DFA.Types
 import Data.Enum
 import Data.Linear.Ref1
 import Data.So

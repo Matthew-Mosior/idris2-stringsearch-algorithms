@@ -13,5 +13,7 @@ depends   = base
 modules   = Data.ByteString.Search.BoyerMoore
           , Data.ByteString.Search.DFA
           , Data.ByteString.Search.DFA.Internal
+          , Data.ByteString.Search.DFA.Types
           , Data.ByteString.Search.Internal.Utils
           , Data.ByteString.Search.KnuthMorrisPratt
+          , Data.ByteString.Search.KnuthMorrisPratt.Internal

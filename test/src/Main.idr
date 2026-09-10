@@ -4,6 +4,7 @@ import BoyerMoore
 import DFA
 import DFA.Internal
 import KnuthMorrisPratt
+import KnuthMorrisPratt.Internal
 import Utils
 
 import Hedgehog
@@ -18,4 +19,5 @@ main = test
   , DFA.props
   , DFA.Internal.props
   , KnuthMorrisPratt.props
+  , KnuthMorrisPratt.Internal.props
   ]

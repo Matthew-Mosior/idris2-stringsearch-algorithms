@@ -3,6 +3,7 @@ module DFA.Internal
 import Data.Array.Core
 import Data.ByteString
 import Data.ByteString.Search.DFA.Internal
+import Data.ByteString.Search.DFA.Types
 import Data.Enum
 import Data.Linear.Ref1
 import Data.Linear.Token
