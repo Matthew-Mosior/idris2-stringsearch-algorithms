@@ -89,7 +89,7 @@ kmpBorders bs t =
             wi'     := cast {to=Nat} wi
           in advance i j wi' bs arr t
 
-
+{-
 ||| Builds a deterministic finite automaton (DFA) for pattern matching over a `ByteString`.
 |||
 ||| The automaton encodes transitions from (state, input byte) → next state,
@@ -220,6 +220,7 @@ automaton bs t =
           Just arr''   := arr'
            | Nothing => Nothing # t
         in assert_total (go (S state) arr'' bord t)
+-}
 
 --------------------------------------------------------------------------------
 --          Boyer-Moore Preprocessing

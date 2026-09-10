@@ -63,96 +63,6 @@ prop_kmpBorders' = property1 $
                let kmpborders'' # t := Data.Array.Core.freeze kmpborders' t
                  in Prelude.Interfaces.toList kmpborders'' # t ) === [0,0,0,0,1,2,3]
 
-||| prop_automaton : "ANPANMAN"
-|||
-||| | flat index | value | meaning (decoded) |
-||| | ---------- | ----- | ----------------- |
-||| | 65         | 1     | δ(0, 'A') = 1     |
-||| | 321        | 1     | δ(1, 'A') = 1     |
-||| | 334        | 2     | δ(1, 'N') = 2     |
-||| | 577        | 1     | δ(2, 'A') = 1     |
-||| | 592        | 3     | δ(2, 'P') = 3     |
-||| | 833        | 4     | δ(3, 'A') = 4     |
-||| | 1089       | 1     | δ(4, 'A') = 1     |
-||| | 1102       | 5     | δ(4, 'N') = 5     |
-||| | 1345       | 1     | δ(5, 'A') = 1     |
-||| | 1357       | 6     | δ(5, 'M') = 6     |
-||| | 1601       | 7     | δ(6, 'A') = 7     |
-||| | 1857       | 1     | δ(7, 'A') = 1     |
-||| | 1870       | 8     | δ(7, 'N') = 8     |
-||| | 2113       | 1     | δ(8, 'A') = 1     |
-|||
-prop_automaton : Property
-prop_automaton = property1 $
-  ( run1 $ \t =>
-      let pat             := Prelude.unpack "ANPANMAN"
-          patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
-          automaton'  # t := automaton patbs t
-        in case automaton' of
-             Nothing          =>
-               (the (List (Nat, Nat)) []) # t
-             Just automaton'' =>
-               let automaton''' # t := Data.Array.Core.freeze automaton'' t
-                   vect             := toVectWithIndex automaton'''
-                   list             := Prelude.Interfaces.toList vect
-                 in filter (\(_, b) => b /= (the Nat 0)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, 1)
-                                                                                                          , (321, 1)
-                                                                                                          , (334, 2)
-                                                                                                          , (577, 1)
-                                                                                                          , (592, 3)
-                                                                                                          , (833, 4)
-                                                                                                          , (1089, 1)
-                                                                                                          , (1102, 5)
-                                                                                                          , (1345, 1)
-                                                                                                          , (1357, 6)
-                                                                                                          , (1601, 7)
-                                                                                                          , (1857, 1)
-                                                                                                          , (1870, 8)
-                                                                                                          , (2113, 1)
-                                                                                                          ]                  
-
-||| prop_automaton' : "ABCABC"
-|||
-||| | flat index | value | meaning      |
-||| | ---------- | ----- | ------------ |
-||| |         65 |     1 | δ(0,'A') = 1 |
-||| |        321 |     1 | δ(1,'A') = 1 |
-||| |        322 |     2 | δ(1,'B') = 2 |
-||| |        577 |     1 | δ(2,'A') = 1 |
-||| |        579 |     3 | δ(2,'C') = 3 |
-||| |        833 |     4 | δ(3,'A') = 4 |
-||| |       1089 |     1 | δ(4,'A') = 1 |
-||| |       1090 |     5 | δ(4,'B') = 5 |
-||| |       1345 |     1 | δ(5,'A') = 1 |
-||| |       1347 |     6 | δ(5,'C') = 6 |
-||| |       1601 |     1 | δ(6,'A') = 1 |
-|||
-prop_automaton' : Property
-prop_automaton' = property1 $
-  ( run1 $ \t =>
-      let pat             := Prelude.unpack "ABCABC"
-          patbs           := Data.ByteString.pack (map (cast {to=Bits8}) pat)
-          automaton'  # t := automaton patbs t
-        in case automaton' of
-             Nothing          =>
-               (the (List (Nat, Nat)) []) # t
-             Just automaton'' =>
-               let automaton''' # t := Data.Array.Core.freeze automaton'' t
-                   vect             := toVectWithIndex automaton'''
-                   list             := Prelude.Interfaces.toList vect
-                 in filter (\(_, b) => b /= (the Nat 0)) (map (\(a, b) => (finToNat a, b)) list) # t) === [ (65, 1)
-                                                                                                          , (321, 1)
-                                                                                                          , (322, 2)
-                                                                                                          , (577, 1)
-                                                                                                          , (579, 3)
-                                                                                                          , (833, 4)
-                                                                                                          , (1089, 1)
-                                                                                                          , (1090, 5)
-                                                                                                          , (1345, 1)
-                                                                                                          , (1347, 6)
-                                                                                                          , (1601, 1)
-                                                                                                          ]
-
 ||| prop_occurrences: "ANPANMAN"
 |||
 ||| | flat index / ASCII | char | value |
@@ -336,7 +246,6 @@ export
 props_ANPANMAN : Group
 props_ANPANMAN = MkGroup "Utils: ANPANMAN"
   [ ("prop_kmpBorders", prop_kmpBorders)
-  , ("prop_automaton", prop_automaton)
   , ("prop_occurrences", prop_occurrences)
   , ("prop_suffixLengths", prop_suffixLengths)
   , ("prop_suffixShifts", prop_suffixShifts)
@@ -346,7 +255,6 @@ export
 props_ABCABC : Group
 props_ABCABC = MkGroup "Utils: ABCABC"
   [ ("prop_kmpBorders'", prop_kmpBorders')
-  , ("prop_automaton'", prop_automaton')
   , ("prop_occurrences'", prop_occurrences')
   , ("prop_suffixLengths'", prop_suffixLengths')
   , ("prop_suffixShifts'", prop_suffixShifts')

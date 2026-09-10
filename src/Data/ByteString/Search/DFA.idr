@@ -2,11 +2,13 @@
 module Data.ByteString.Search.DFA
 
 import Data.ByteString.Search.Internal.Utils
+import Data.ByteString.Search.DFA.Internal
 
 import Data.Array.Core
 import Data.Array.Mutable
 import Data.Bits
 import Data.ByteString
+import Data.Enum
 import Data.Linear.Ref1
 import Data.So
 
@@ -15,8 +17,26 @@ import Data.So
 
 %default total
 
-||| Returns a list of starting positions of a pattern `ByteString`
-||| (0-based) across a target `ByteString`.
+||| Search for occurrences of `pat` within `target` using a precomputed
+||| deterministic finite automaton.
+|||
+||| When `overlap` is `True`, overlapping occurrences are retained. When it
+||| is `False`, searching resumes after the end of each complete match.
+|||
+||| A single-byte pattern is handled separately using `elemIndex`, preserving
+||| the behavior of the previous implementation.
+|||
+||| For patterns longer than one byte, the DFA is constructed once and the
+||| target is scanned from left to right.
+|||
+||| State zero is handled specially so that target bytes which differ from
+||| the first pattern byte do not require a DFA table lookup.
+|||
+||| Nonzero DFA states are represented by `DFAState`, which is an `Index`
+||| carrying erased bounds evidence. Each call to `dfaTransition` therefore
+||| accepts an already-valid state and returns another already-valid state.
+||| No `tryNatToFin`, `tryIndex`, or equivalent DFA-table bounds check occurs
+||| in the target-scanning hot path.
 |||
 private
 matcher :  Bool
@@ -24,85 +44,127 @@ matcher :  Bool
         -> ByteString
         -> F1 s (Maybe (List Nat))
 matcher overlap pat target t =
-  let patlen       := length pat
-      targetlen    := length target
-      False        := patlen == S Z
+  let patlen                      := length pat
+      targetlen                   := length target
+      False                       := patlen == S Z
         | True =>
             let Just patzero := index Z pat
                   | Nothing =>
                       Nothing # t
-                headelem := elemIndex patzero target
-                Just headelem' := headelem
+                Just headelem := elemIndex patzero target
                   | Nothing =>
                       Nothing # t
-              in Just (headelem' :: []) # t
-      Just patzero := index Z pat
+              in Just (headelem :: []) # t
+      Just patzero                := index Z pat
         | Nothing =>
             Nothing # t
-      dfa      # t := automaton pat t
-      Just dfa'    := dfa
+      dfa                     # t := automaton pat t
+      Just dfa'                   := dfa
         | Nothing =>
             Nothing # t
-      result  # t := matchZero Z Lin patlen targetlen patzero dfa' t
-      Just result' := result
+      MkDFAutomaton stspace table := dfa'
+      Just stateone               := tryIndex {r = stspace.states} 1
+        | Nothing =>
+            Nothing # t
+      result                  # t := matchZero stspace Z Lin patlen targetlen patzero table stateone t
+      Just result'                := result
         | Nothing =>
             Nothing # t
     in Just (result' <>> []) # t
   where
     mutual
-      matchZero :  (idx : Nat)
+      ||| Continue scanning while the DFA is in state zero.
+      |||
+      ||| State zero is treated specially because any byte other than the
+      ||| first pattern byte necessarily leaves the automaton in state zero.
+      ||| Such bytes can therefore be skipped without consulting the DFA
+      ||| transition table.
+      |||
+      ||| When the first pattern byte is encountered, the matcher moves
+      ||| directly to the prevalidated DFA state one and continues through
+      ||| `matchState`.
+      |||
+      matchZero :  (stspace : DFAStateSpace)
+                -> (idx : Nat)
                 -> (final : SnocList Nat)
                 -> (patlen : Nat)
                 -> (targetlen : Nat)
                 -> (patzero : Bits8)
-                -> (dfa : MArray s (mult (plus (length pat) 1) 256) Nat)
+                -> (dfa : DFATable s stspace.states)
+                -> (stateone : DFAState stspace.states)
                 -> F1 s (Maybe (SnocList Nat))
-      matchZero idx final patlen targetlen patzero dfa t =
-        let False     := idx == targetlen
-              | True =>
-                  Just final # t
-            Just byte := index idx target
-              | Nothing =>
-                  Nothing # t
-            nxtidx    := S idx
-            False     := byte == patzero
-              | True =>
-                  assert_total (matchState (S Z) nxtidx final patlen targetlen patzero dfa t)
-          in assert_total (matchZero nxtidx final patlen targetlen patzero dfa t)
-      matchState :  (state : Nat)
+      matchZero stspace idx final patlen targetlen patzero dfa stateone t =
+          let False     := idx == targetlen
+                | True =>
+                    Just final # t
+              Just byte := index idx target
+                | Nothing =>
+                    Nothing # t
+              nxtidx    := S idx
+              False     := byte == patzero
+                | True =>
+                    assert_total (matchState stspace stateone nxtidx final patlen targetlen patzero dfa stateone t)
+            in assert_total (matchZero stspace nxtidx final patlen targetlen patzero dfa stateone t)
+      ||| Continue scanning from a nonzero DFA state.
+      |||
+      ||| The current state is represented by `DFAState`, so it is already
+      ||| known to lie within the DFA's state space. `dfaTransition` computes
+      ||| the flattened transition-table position from this bounded state and
+      ||| the current input byte, performs the primitive array read, and
+      ||| returns another bounded `DFAState`.
+      |||
+      ||| Consequently, the per-byte DFA lookup performs no explicit
+      ||| `tryNatToFin`, `tryIndex`, or `Maybe`-based bounds validation.
+      |||
+      ||| When a complete match is found, overlapping searches resume one
+      ||| byte after the start of the match, while non-overlapping searches
+      ||| resume immediately after the matched pattern.
+      |||
+      ||| If a transition returns state zero, control returns to `matchZero`
+      ||| so subsequent bytes can take advantage of the state-zero fast path.
+      |||
+      matchState :  (stspace : DFAStateSpace)
+                 -> (state : DFAState stspace.states)
                  -> (idx : Nat)
                  -> (final : SnocList Nat)
                  -> (patlen : Nat)
                  -> (targetlen : Nat)
                  -> (patzero : Bits8)
-                 -> (dfa : MArray s (mult (plus (length pat) 1) 256) Nat)
+                 -> (dfa : DFATable s stspace.states)
+                 -> (stateone : DFAState stspace.states)
                  -> F1 s (Maybe (SnocList Nat))
-      matchState state idx final patlen targetlen patzero dfa t =
-        let False        := idx == targetlen
-              | True =>
-                  Just final # t
-            Just byte    := index idx target
-              | Nothing =>
-                  Nothing # t
-            statebase    := mult state 256
-            dfaidx       := plus statebase (cast {to=Nat} byte)
-            Just dfaidx' := tryNatToFin dfaidx
-              | Nothing =>
-                  Nothing # t
-            nstate   # t := get dfa dfaidx' t
-            nxtidx       := S idx
-            False        := nstate == patlen
-              | True =>
-                  let matchidx := minus nxtidx patlen
-                      final'   := final :< matchidx
-                      False    := overlap
-                        | True =>
-                            assert_total (matchZero (S matchidx) final' patlen targetlen patzero dfa t)
-                    in assert_total (matchZero nxtidx final' patlen targetlen patzero dfa t)
-            False        := nstate == Z
-              | True =>
-                  assert_total (matchZero nxtidx final patlen targetlen patzero dfa t)
-          in assert_total (matchState nstate nxtidx final patlen targetlen patzero dfa t)
+      matchState stspace state idx final patlen targetlen patzero dfa stateone t =
+          let False := idx == targetlen
+                | True =>
+                    Just final # t
+              Just byte := index idx target
+                | Nothing =>
+                    Nothing # t
+              nstate # t :=
+                dfaTransition
+                  {statesPrf = stspace.statesBounded}
+                  dfa
+                  state
+                  byte
+                  t
+              nstateval :=
+                dfaStateValue nstate
+              nxtidx :=
+                S idx
+              False := nstateval == cast {to=Bits32} patlen
+                | True =>
+                    let matchidx :=
+                          minus nxtidx patlen
+                        final' :=
+                          final :< matchidx
+                        False := overlap
+                          | True =>
+                              assert_total (matchZero stspace (S matchidx) final' patlen targetlen patzero dfa stateone t)
+                      in assert_total (matchZero stspace nxtidx final' patlen targetlen patzero dfa stateone t)
+              False := nstateval == 0
+                | True =>
+                    assert_total (matchZero stspace nxtidx final patlen targetlen patzero dfa stateone t)
+            in assert_total (matchState stspace nstate nxtidx final patlen targetlen patzero dfa stateone t)
 
 ||| Performs a string search on a `ByteString` utilizing a determinisitic-finite-automaton (DFA).
 |||

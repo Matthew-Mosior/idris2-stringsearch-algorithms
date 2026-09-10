@@ -2,6 +2,7 @@ module Main
 
 import BoyerMoore
 import DFA
+import DFA.Internal
 import KnuthMorrisPratt
 import Utils
 
@@ -15,5 +16,6 @@ main = test
   , Utils.props_ABCABC
   , BoyerMoore.props
   , DFA.props
+  , DFA.Internal.props
   , KnuthMorrisPratt.props
   ]
