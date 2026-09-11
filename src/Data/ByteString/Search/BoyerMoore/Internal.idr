@@ -276,203 +276,92 @@ suffixLengths bs {prf} t =
             Nothing # t
     in Just (MkBMPatternTable stspace arr'') # t
   where
-    dec :
-         (diff : Int)
-      -> (j : Int)
-      -> F1 s (Maybe Int)
+    dec :  (diff : Int)
+        -> (j : Int)
+        -> F1 s (Maybe Int)
     dec diff j t =
-      let False := j < 0
+      let False        := j < 0
             | True =>
                 Just j # t
-
-          Just jbyte :=
-            index (cast {to=Nat} j) bs
+          Just jbyte   := index (cast {to=Nat} j) bs
             | Nothing =>
                 Nothing # t
-
-          Just shifted :=
-            index
-              (cast {to=Nat} (j + diff))
-              bs
+          Just shifted := index (cast {to=Nat} (j + diff)) bs
             | Nothing =>
                 Nothing # t
-
-          False := jbyte /= shifted
+          False        := jbyte /= shifted
             | True =>
                 Just j # t
-
-       in assert_total $
-            dec diff (j - 1) t
-
+        in assert_total (dec diff (j - 1) t)
     mutual
-      suffixLoop :
-           (stspace : BMPatternSpace)
-        -> (pre : Int)
-        -> (end : Int)
-        -> (idx : Int)
-        -> (arr : BMIntTable s stspace.size)
-        -> F1 s (Maybe (BMIntTable s stspace.size))
-      suffixLoop _ _ _ 0 arr t =
+      suffixLoop :  (stspace : BMPatternSpace)
+                 -> (pre : Int)
+                 -> (end : Int)
+                 -> (idx : Int)
+                 -> (arr : BMIntTable s stspace.size)
+                 -> F1 s (Maybe (BMIntTable s stspace.size))
+      suffixLoop _       _   _   0   arr t =
         Just arr # t
-
       suffixLoop stspace pre end idx arr t =
-        let True := pre < idx
+        let True         := pre < idx
               | False =>
                   noSuffix stspace idx arr t
-
-            Just idxbyte :=
-              index (cast {to=Nat} idx) bs
+            Just idxbyte := index (cast {to=Nat} idx) bs
               | Nothing =>
                   Nothing # t
-
-            Just endbyte :=
-              index (minus (length bs) 1) bs
+            Just endbyte := index (minus (length bs) 1) bs
               | Nothing =>
                   Nothing # t
-
-            Just idxpos :=
-              toPatternIndex stspace (cast {to=Nat} idx)
+            Just idxpos := toPatternIndex stspace (cast {to=Nat} idx)
               | Nothing =>
                   Nothing # t
-
-            False := idxbyte /= endbyte
+            False       := idxbyte /= endbyte
               | True =>
-                  let () # t :=
-                        bmSet arr idxpos 0 t
-                   in assert_total $
-                        suffixLoop
-                          stspace
-                          pre
-                          (end - 1)
-                          (idx - 1)
-                          arr
-                          t
-
-            Just endpos :=
-              toPatternIndex stspace (cast {to=Nat} end)
+                  let () # t := bmSet arr idxpos 0 t
+                    in assert_total (suffixLoop stspace pre (end - 1) (idx - 1) arr t)
+            Just endpos := toPatternIndex stspace (cast {to=Nat} end)
               | Nothing =>
                   Nothing # t
-
-            prevs # t :=
-              bmGet arr endpos t
-
-            False := (pre + prevs) < idx
+            prevs   # t := bmGet arr endpos t
+            False       := (pre + prevs) < idx
               | True =>
-                  let () # t :=
-                        bmSet arr idxpos prevs t
-                   in assert_total $
-                        suffixLoop
-                          stspace
-                          pre
-                          (end - 1)
-                          (idx - 1)
-                          arr
-                          t
-
-            pri # t :=
-              dec
-                (cast {to=Int}
-                  (minus
-                    (length bs)
-                    (cast {to=Nat} idx)))
-                pre
-                t
-
-            Just pri' := pri
+                  let () # t := bmSet arr idxpos prevs t
+                    in assert_total (suffixLoop stspace pre (end - 1) (idx - 1) arr t)
+            pri     # t := dec (cast {to=Int} (minus (length bs) (cast {to=Nat} idx))) pre t
+            Just pri'   := pri
               | Nothing =>
                   Nothing # t
-
-            () # t :=
-              bmSet
-                arr
-                idxpos
-                (idx - pri')
-                t
-
-         in assert_total $
-              suffixLoop
-                stspace
-                pri'
-                (cast {to=Int} $ minus (length bs) 2)
-                (idx - 1)
-                arr
-                t
-
-      noSuffix :
-           (stspace : BMPatternSpace)
-        -> (i : Int)
-        -> (arr : BMIntTable s stspace.size)
-        -> F1 s (Maybe (BMIntTable s stspace.size))
-      noSuffix _ 0 arr t =
+            ()      # t := bmSet arr idxpos (idx - pri') t
+          in assert_total (suffixLoop stspace pri' (cast {to=Int} $ minus (length bs) 2) (idx - 1) arr t)
+      noSuffix :  (stspace : BMPatternSpace)
+               -> (i : Int)
+               -> (arr : BMIntTable s stspace.size)
+               -> F1 s (Maybe (BMIntTable s stspace.size))
+      noSuffix _       0 arr t =
         Just arr # t
-
       noSuffix stspace i arr t =
-        let Just patati :=
-              index (cast {to=Nat} i) bs
+        let Just patati   := index (cast {to=Nat} i) bs
               | Nothing =>
                   Nothing # t
-
-            Just patatend :=
-              index (minus (length bs) 1) bs
+            Just patatend := index (minus (length bs) 1) bs
               | Nothing =>
                   Nothing # t
-
-            Just ipos :=
-              toPatternIndex
-                stspace
-                (cast {to=Nat} i)
+            Just ipos     := toPatternIndex stspace (cast {to=Nat} i)
               | Nothing =>
                   Nothing # t
-
-            True := patati == patatend
+            True          := patati == patatend
               | False =>
-                  let () # t :=
-                        bmSet arr ipos 0 t
-                   in assert_total $
-                        noSuffix
-                          stspace
-                          (i - 1)
-                          arr
-                          t
-
-            diff :=
-              cast {to=Int}
-                (minus (length bs) 1)
-                - i
-
-            nexti :=
-              i - 1
-
-            previ # t :=
-              dec diff nexti t
-
-            Just previ' := previ
+                  let () # t := bmSet arr ipos 0 t
+                    in assert_total (noSuffix stspace (i - 1) arr t)
+            diff             := cast {to=Int} (minus (length bs) 1) - i
+            nexti            := i - 1
+            previ        # t := dec diff nexti t
+            Just previ'      := previ
               | Nothing =>
                   Nothing # t
-
-            False := previ' == nexti
+            False            := previ' == nexti
               | True =>
-                  let () # t :=
-                        bmSet arr ipos 1 t
-                   in assert_total $
-                        noSuffix
-                          stspace
-                          nexti
-                          arr
-                          t
-
-            () # t :=
-              bmSet
-                arr
-                ipos
-                (i - previ')
-                t
-
-         in assert_total $
-              suffixLoop
-                stspace
-                previ'
-                (cast {to=Int} $ minus (length bs) 2)
-                nexti
-                arr
-                t
+                  let () # t := bmSet arr ipos 1 t
+                    in assert_total (noSuffix stspace nexti arr t)
+            ()           # t := bmSet arr ipos (i - previ') t
+          in assert_total (suffixLoop stspace previ' (cast {to=Int} $ minus (length bs) 2) nexti arr t)
