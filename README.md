@@ -36,33 +36,24 @@ This library pre-computes the bad-character rule using the `occurrences` functio
 ```idris
 occurrences :  (bs : ByteString)
             -> {0 prf : So (not $ null bs)}
-            -> F1 s (Maybe (MArray s 256 Int))
+            -> F1 s (Maybe (OccurrenceTable s))
 occurrences bs t =
-  let arr  # t := marray1 256 (the Int 1) t
-      arr' # t := go Z (length bs) bs arr t
-      Just arr'' := arr'
-        | Nothing =>
-            Nothing # t
-    in Just arr'' # t
+  let arr # t := newOccurrenceTable t
+    in go Z (length bs) arr t
   where
     go :  (i : Nat)
-       -> (patend : Nat)
-       -> (bs : ByteString)
-       -> (arr : MArray s 256 Int)
-       -> F1 s (Maybe (MArray s 256 Int))
-    go i patend bs arr t =
-      let False     := (S i) >= patend
+      -> (patend : Nat)
+      -> OccurrenceTable s
+      -> F1 s (Maybe (OccurrenceTable s))
+    go i patend arr t =
+      let False     := S i >= patend
             | True =>
                 Just arr # t
-          i'        := index i bs
-          Just i''  := i'
+          Just byte := index i bs
             | Nothing =>
                 Nothing # t
-          Just i''' := tryNatToFin (cast {to=Nat} i'')
-            | Nothing =>
-                Nothing # t
-          ()    # t := set arr i''' (negate $ cast {to=Int} i) t
-        in assert_total (go (S i) patend bs arr t)
+          ()    # t := setOccurrence arr byte (negate $ cast {to=Int} i) t
+       in assert_total (go (S i) patend arr t)
 ```
 
 `occurrences` answers the following question:
@@ -127,120 +118,112 @@ Let's focus on the `suffixLengths` function first:
 ```idris
 suffixLengths :  (bs : ByteString)
               -> {0 prf : So (not $ null bs)}
-              -> F1 s (Maybe (MArray s (length bs) Int))
-suffixLengths bs t =
-  let arr    # t := marray1 (length bs) (the Int 0) t
-      Just idx   := tryNatToFin (minus (length bs) 1)
+              -> F1 s (Maybe (BMPatternTable s))
+suffixLengths bs {prf} t =
+  let Just stspace := bmPatternSpace bs {prf = prf}
         | Nothing =>
             Nothing # t
-      ()     # t := set arr idx (cast {to=Int} (length bs)) t
-      arr'   # t := noSuffix (cast {to=Int} (minus (length bs) 2)) bs arr t
-      Just arr'' := arr'
+      arr      # t := newBMIntTableWith {size = stspace.size} 0 t
+      lastidxnat   := minus (length bs) 1
+      Just lastidx := toPatternIndex stspace lastidxnat
         | Nothing =>
             Nothing # t
-    in Just arr'' # t
+      ()       # t := bmSet arr lastidx (cast {to=Int} $ length bs) t
+      arr'     # t := noSuffix stspace (cast {to=Int} $ minus (length bs) 2) arr t
+      Just arr''   := arr'
+        | Nothing =>
+            Nothing # t
+    in Just (MkBMPatternTable stspace arr'') # t
   where
     dec :  (diff : Int)
         -> (j : Int)
         -> F1 s (Maybe Int)
     dec diff j t =
-      let False      := j < 0
+      let False        := j < 0
             | True =>
                 Just j # t
-          j'         := index (cast {to=Nat} j) bs
-          Just j''   := j'
+          Just jbyte   := index (cast {to=Nat} j) bs
             | Nothing =>
                 Nothing # t
-          j'''       := index (cast {to=Nat} (j + diff)) bs
-          Just j'''' := j'''
+          Just shifted := index (cast {to=Nat} (j + diff)) bs
             | Nothing =>
                 Nothing # t
-          False      := j'' /= j''''
+          False        := jbyte /= shifted
             | True =>
                 Just j # t
         in assert_total (dec diff (j - 1) t)
     mutual
-      suffixLoop :  (pre : Int)
+      suffixLoop :  (stspace : BMPatternSpace)
+                 -> (pre : Int)
                  -> (end : Int)
                  -> (idx : Int)
-                 -> (bs : ByteString)
-                 -> (arr : MArray s (length bs) Int)
-                 -> F1 s (Maybe (MArray s (length bs) Int))
-      suffixLoop _   _   0   _  arr t =
+                 -> (arr : BMIntTable s stspace.size)
+                 -> F1 s (Maybe (BMIntTable s stspace.size))
+      suffixLoop _       _   _   0   arr t =
         Just arr # t
-      suffixLoop pre end idx bs arr t =
+      suffixLoop stspace pre end idx arr t =
         let True         := pre < idx
               | False =>
-                  noSuffix idx bs arr t
-            idx'         := index (cast {to=Nat} idx) bs
-            Just idx''   := idx'
+                  noSuffix stspace idx arr t
+            Just idxbyte := index (cast {to=Nat} idx) bs
               | Nothing =>
                   Nothing # t
-            idx'''       := index (minus (length bs) 1) bs
-            Just idx'''' := idx'''
+            Just endbyte := index (minus (length bs) 1) bs
               | Nothing =>
                   Nothing # t
-            False        := idx'' /= idx''''
+            Just idxpos := toPatternIndex stspace (cast {to=Nat} idx)
+              | Nothing =>
+                  Nothing # t
+            False       := idxbyte /= endbyte
               | True =>
-                  let Just idxs := tryNatToFin (cast {to=Nat} idx)
-                        | Nothing =>
-                            Nothing # t
-                      ()    # t := set arr idxs 0 t
-                    in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
-            Just end'    := tryNatToFin (cast {to=Nat} end)
+                  let () # t := bmSet arr idxpos 0 t
+                    in assert_total (suffixLoop stspace pre (end - 1) (idx - 1) arr t)
+            Just endpos := toPatternIndex stspace (cast {to=Nat} end)
               | Nothing =>
                   Nothing # t
-            prevs    # t := get arr end' t
-            Just idxs    := tryNatToFin (cast {to=Nat} idx)
-              | Nothing =>
-                  Nothing # t
-            False        := (pre + prevs) < idx
+            prevs   # t := bmGet arr endpos t
+            False       := (pre + prevs) < idx
               | True =>
-                  let () # t := set arr idxs prevs t
-                    in assert_total (suffixLoop pre (end - 1) (idx - 1) bs arr t)
-            pri      # t := dec (cast {to=Int} (minus (length bs) (cast {to=Nat} idx))) pre t
-            Just pri'    := pri
+                  let () # t := bmSet arr idxpos prevs t
+                    in assert_total (suffixLoop stspace pre (end - 1) (idx - 1) arr t)
+            pri     # t := dec (cast {to=Int} (minus (length bs) (cast {to=Nat} idx))) pre t
+            Just pri'   := pri
               | Nothing =>
                   Nothing # t
-            ()       # t := set arr idxs (idx - pri') t
-          in assert_total (suffixLoop pri' (cast {to=Int} (minus (length bs) 2)) (idx - 1) bs arr t)
-      noSuffix :  (i : Int)
-               -> (bs : ByteString)
-               -> (arr : MArray s (length bs) Int)
-               -> F1 s (Maybe (MArray s (length bs) Int))
-      noSuffix 0 _  arr t =
+            ()      # t := bmSet arr idxpos (idx - pri') t
+          in assert_total (suffixLoop stspace pri' (cast {to=Int} $ minus (length bs) 2) (idx - 1) arr t)
+      noSuffix :  (stspace : BMPatternSpace)
+               -> (i : Int)
+               -> (arr : BMIntTable s stspace.size)
+               -> F1 s (Maybe (BMIntTable s stspace.size))
+      noSuffix _       0 arr t =
         Just arr # t
-      noSuffix i bs arr t =
-        let patati         := index (cast {to=Nat} i) bs
-            Just patati'   := patati
+      noSuffix stspace i arr t =
+        let Just patati   := index (cast {to=Nat} i) bs
               | Nothing =>
                   Nothing # t
-            patatend       := index (minus (length bs) 1) bs
-            Just patatend' := patatend
+            Just patatend := index (minus (length bs) 1) bs
               | Nothing =>
                   Nothing # t
-            True           := patati' == patatend'
+            Just ipos     := toPatternIndex stspace (cast {to=Nat} i)
+              | Nothing =>
+                  Nothing # t
+            True          := patati == patatend
               | False =>
-                  let Just i' := tryNatToFin (cast {to=Nat} i)
-                        | Nothing =>
-                            Nothing # t
-                      ()  # t := set arr i' 0 t
-                    in assert_total (noSuffix (i - 1) bs arr t)
-            diff           := (cast {to=Int} (minus (length bs) 1)) - i
-            nexti          := i - 1
-            previ      # t := dec diff nexti t
-            Just previ'    := previ
+                  let () # t := bmSet arr ipos 0 t
+                    in assert_total (noSuffix stspace (i - 1) arr t)
+            diff             := cast {to=Int} (minus (length bs) 1) - i
+            nexti            := i - 1
+            previ        # t := dec diff nexti t
+            Just previ'      := previ
               | Nothing =>
                   Nothing # t
-            Just i'        := tryNatToFin (cast {to=Nat} i)
-              | Nothing =>
-                  Nothing # t
-            False          := previ' == nexti
+            False            := previ' == nexti
               | True =>
-                  let () # t := set arr i' 1 t
-                    in assert_total (noSuffix nexti bs arr t)
-            ()         # t := set arr i' (i - previ') t
-          in assert_total (suffixLoop previ' (cast {to=Int} (minus (length bs) 2)) nexti bs arr t)
+                  let () # t := bmSet arr ipos 1 t
+                    in assert_total (noSuffix stspace nexti arr t)
+            ()           # t := bmSet arr ipos (i - previ') t
+          in assert_total (suffixLoop stspace previ' (cast {to=Int} $ minus (length bs) 2) nexti arr t)
 ```
 
 `suffixLengths` computes the following:
@@ -308,81 +291,81 @@ Now, we can dive into the `suffixShifts` function:
 ```idris
 suffixShifts :  (bs : ByteString)
              -> {0 prf : So (not $ null bs)}
-             -> F1 s (Maybe (MArray s (length bs) Int))
+             -> F1 s (Maybe (BMPatternTable s))
 suffixShifts bs {prf} t =
-  let arr      # t := marray1 (length bs) (cast {to=Int} (length bs)) t
-      suff     # t := suffixLengths bs {prf=prf} t
-      Just suff'   := suff
+  let suff                              # t := suffixLengths bs {prf = prf} t
+      Just (MkBMPatternTable stspace suff') := suff
         | Nothing =>
             Nothing # t
-      arr'     # t := prefixShift (cast {to=Int} (minus (length bs) 2)) 0 bs suff' arr t
-      Just arr''   := arr'
+      arr                               # t := newBMIntTableWith {size = stspace.size} (cast {to=Int} $ length bs) t
+      arr'                              # t := prefixShift stspace (cast {to=Int} $ minus (length bs) 2) 0 suff' arr t
+      Just arr''                            := arr'
         | Nothing =>
             Nothing # t
-      arr'''   # t := suffixShift 0 bs suff' arr'' t
-      Just arr'''' := arr'''
+      arr'''                            # t := suffixShift stspace 0 suff' arr'' t
+      Just arr''''                          := arr'''
         | Nothing =>
             Nothing # t
-    in Just arr'''' # t
+    in Just (MkBMPatternTable stspace arr'''') # t
   where
-    fillToShift :  (i : Int)
+    fillToShift :  (stspace : BMPatternSpace)
+                -> (i : Int)
                 -> (shift : Int)
-                -> (bs : ByteString)
-                -> (arr : MArray s (length bs) Int)
-                -> F1 s (Maybe (MArray s (length bs) Int))
-    fillToShift i shift bs arr t =
-      let False   := i == shift
+                -> (arr : BMIntTable s stspace.size)
+                -> F1 s (Maybe (BMIntTable s stspace.size))
+    fillToShift stspace i shift arr t =
+      let False     := i == shift
             | True =>
                 Just arr # t
-          Just i' := tryNatToFin (cast {to=Nat} i)
+          Just ipos := toPatternIndex stspace (cast {to=Nat} i)
             | Nothing =>
                 Nothing # t
-          ()  # t := set arr i' shift t
-        in assert_total (fillToShift (i + 1) shift bs arr t)
-    prefixShift :  (idx : Int)
+          ()    # t := bmSet arr ipos shift t
+        in assert_total (fillToShift stspace (i + 1) shift arr t)
+    prefixShift :  (stspace : BMPatternSpace)
+                -> (idx : Int)
                 -> (j : Int)
-                -> (bs : ByteString)
-                -> (suff : MArray s (length bs) Int)
-                -> (arr : MArray s (length bs) Int)
-                -> F1 s (Maybe (MArray s (length bs) Int))
-    prefixShift idx j bs suff arr t =
-      let False      := idx < 0
+                -> (suff : BMIntTable s stspace.size)
+                -> (arr : BMIntTable s stspace.size)
+                -> F1 s (Maybe (BMIntTable s stspace.size))
+    prefixShift stspace idx j suff arr t =
+      let False       := idx < 0
             | True =>
                 Just arr # t
-          Just idx'  := tryNatToFin (cast {to=Nat} idx)
+          Just idxpos := toPatternIndex stspace (cast {to=Nat} idx)
             | Nothing =>
                 Nothing # t
-          idx''  # t := get suff idx' t
-          True       := idx'' ==  (idx + 1)
+          idxval  # t := bmGet suff idxpos t
+          True        := idxval == idx + 1
             | False =>
-                assert_total (prefixShift (idx - 1) j bs suff arr t)
-          shift      := (cast {to=Int} (minus (length bs) 1)) - idx
-          arr'   # t := fillToShift j shift bs arr t
-          Just arr'' := arr'
+                assert_total (prefixShift stspace (idx - 1) j suff arr t)
+          shift       := cast {to=Int} (minus (length bs) 1) - idx
+          arr'    # t := fillToShift stspace j shift arr t
+          Just arr''  := arr'
             | Nothing =>
                 Nothing # t
-        in assert_total (prefixShift (idx - 1) shift bs suff arr'' t)
-    suffixShift :  (idx : Int)
-                -> (bs : ByteString)
-                -> (suff : MArray s (length bs) Int)
-                -> (arr : MArray s (length bs) Int)
-                -> F1 s (Maybe (MArray s (length bs) Int))
-    suffixShift idx bs suff arr t =
-      let patend       := cast {to=Int} (minus (length bs) 1)
-          False        := idx >= patend
+        in assert_total (prefixShift stspace (idx - 1) shift suff arr'' t)
+    suffixShift :  (stspace : BMPatternSpace)
+                -> (idx : Int)
+                -> (suff : BMIntTable s stspace.size)
+                -> (arr : BMIntTable s stspace.size)
+                -> F1 s (Maybe (BMIntTable s stspace.size))
+    suffixShift stspace idx suff arr t =
+      let patend         := cast {to=Int} (minus (length bs) 1)
+          False          := idx >= patend
             | True =>
                 Just arr # t
-          Just idx'    := tryNatToFin (cast {to=Nat} idx)
+          Just idxpos    := toPatternIndex stspace (cast {to=Nat} idx)
             | Nothing =>
                 Nothing # t
-          idx''    # t := get suff idx' t
-          target       := patend - idx''
-          Just target' := tryNatToFin (cast {to=Nat} target)
+          sufflen    # t := bmGet suff idxpos t
+          target         := patend - sufflen
+          Just targetpos := toPatternIndex stspace (cast {to=Nat} target)
             | Nothing =>
                 Nothing # t
-          value        := patend - idx
-          ()       # t := set arr target' value t
-        in assert_total (suffixShift (idx + 1) bs suff arr t)
+          value          := patend - idx
+          ()         # t := bmSet arr targetpos value t
+        in assert_total (suffixShift stspace (idx + 1) suff arr t)
 ```
 
 `suffixShifts` uses the lengths from `suffixLengths` to compute the actual suffix shifts.
@@ -422,90 +405,93 @@ Given a pattern `P` of length `m` (length of `P`) and an alphabet `Σ` (bytes = 
 
 ```idris
 automaton :  (bs : ByteString)
-          -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
+          -> F1 s (Maybe (DFAutomaton s))
 automaton bs t =
-  let arr  # t := unsafeMArray1 (mult (plus (length bs) 1) 256) t
-      bord # t := kmpBorders bs t
-      Just bord' := bord
-        | Nothing => Nothing # t
-    in go Z arr bord' t
+   let bord                          # t := kmpBorders bs t
+       Just (MkKMPBorders stspace bord') := bord
+         | Nothing =>
+             Nothing # t
+       arr                           # t := newDFATable {states = stspace.states} {statesPrf = stspace.statesBounded} t
+       result                        # t := go stspace Z arr bord' t
+       Just result'                      := result
+         | Nothing =>
+             Nothing # t
+     in Just (MkDFAutomaton stspace result') # t
   where
-    fillState :  (state : Nat)
-              -> (byte : Nat)
-              -> (patbyte : Maybe Nat)
-              -> (bordcur : Nat)
-              -> (statebase : Nat)
-              -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-              -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
-    fillState state byte patbyte bordcur statebase arr t =
-      let idx           := plus statebase byte
-          Just idx'     := the (Maybe (Fin (mult (plus (length bs) 1) 256))) (tryNatToFin idx)
-            | Nothing =>
-                Nothing # t
+    fillState :  (space : DFAStateSpace)
+              -> (state : DFAState space.states)
+              -> (byte : Bits8)
+              -> (patbyte : Maybe Bits8)
+              -> (bordcur : DFAState space.states)
+              -> (arr : DFATable s space.states)
+              -> F1 s (Maybe (DFATable s space.states))
+    fillState space state byte patbyte bordcur arr t =
+      let stateval      := dfaStateValue state
           Just patbyte' := patbyte
             | Nothing =>
-                let False        := state == Z
+                let False        := stateval == 0
                       | True =>
-                          let () # t := set arr idx' Z t
-                              False  := byte == Z
-                                | True =>
-                                    Just arr # t
-                            in assert_total (fillState state (minus byte 1) patbyte bordcur statebase arr t)
-                    fidx         := plus (mult bordcur 256) byte
-                    Just fidx'   := tryNatToFin fidx
-                      | Nothing => Nothing # t
-                    bordcur' # t := get arr fidx' t
-                    ()       # t := set arr idx' bordcur' t
-                    False  := byte == Z
-                      | True =>
-                          Just arr # t
-                  in assert_total (fillState state (minus byte 1) patbyte bordcur' statebase arr t)
+                          let zero   := zeroDFAState space
+                              () # t := setDFATransition {statesPrf = space.statesBounded} arr state byte zero t
+                              True   := byte == 0
+                                | False =>
+                                    assert_total (fillState space state (byte - 1) patbyte bordcur arr t)
+                            in Just arr # t
+                    bordcur' # t := dfaTransition {statesPrf = space.statesBounded} arr bordcur byte t
+                    ()       # t := setDFATransition {statesPrf = space.statesBounded} arr state byte bordcur' t
+                    True         := byte == 0
+                      | False =>
+                          assert_total (fillState space state (byte - 1) patbyte bordcur' arr t)
+                  in Just arr # t
           False         := byte == patbyte'
             | True =>
-                let () # t := set arr idx' (S state) t
-                    False  := byte == Z
-                      | True =>
-                          Just arr # t
-                  in assert_total (fillState state (minus byte 1) patbyte bordcur statebase arr t)
-          False         := state == Z
+                let Just next := toDFAState space (S $ cast stateval)
+                      | Nothing =>
+                          Nothing # t
+                    ()    # t := setDFATransition {statesPrf = space.statesBounded} arr state byte next t
+                    True      := byte == 0
+                      | False =>
+                          assert_total (fillState space state (byte - 1) patbyte bordcur arr t)
+                  in Just arr # t
+          False         := stateval == 0
             | True =>
-                let () # t := set arr idx' Z t
-                    False  := byte == Z
-                      | True =>
-                          Just arr # t
-                  in assert_total (fillState state (minus byte 1) patbyte bordcur statebase arr t)
-          fidx          := plus (mult bordcur 256) byte
-          Just fidx'    := tryNatToFin fidx
+                let zero   := zeroDFAState space
+                    () # t := setDFATransition {statesPrf = space.statesBounded} arr state byte zero t
+                    True   := byte == 0
+                      | False =>
+                          assert_total (fillState space state (byte - 1) patbyte bordcur arr t)
+                  in Just arr # t
+          bordcur'  # t := dfaTransition {statesPrf = space.statesBounded} arr bordcur byte t
+          ()        # t := setDFATransition {statesPrf = space.statesBounded} arr state byte bordcur' t
+          True          := byte == 0
+            | False =>
+                assert_total (fillState space state (byte - 1) patbyte bordcur' arr t)
+        in Just arr # t
+    ||| Construct the transition rows for each DFA state.
+    |||
+    ||| The KMP border table and DFA transition table share the same bounded
+    ||| state space, so border values can be consumed directly as DFA states
+    ||| without any intermediate `Nat` or `Fin` conversion.
+    |||
+    go :  (stspace : DFAStateSpace)
+       -> (state : Nat)
+       -> (arr : DFATable s stspace.states)
+       -> (bord : KMPBorderTable s stspace.states)
+       -> F1 s (Maybe (DFATable s stspace.states))
+    go stspace state arr bord t =
+      let False          := state > length bs
+            | True =>
+                Just arr # t
+          Just state' := toDFAState stspace state
             | Nothing =>
                 Nothing # t
-          bordcur' # t  := get arr fidx' t
-          ()       # t  := set arr idx' bordcur' t
-          False         := byte == Z
-            | True =>
-                Just arr # t
-        in assert_total (fillState state (minus byte 1) patbyte bordcur' statebase arr t)
-    go :  (state : Nat)
-       -> (arr : MArray s (mult (plus (length bs) 1) 256) Nat)
-       -> (bord : MArray s (S (length bs)) Nat)
-       -> F1 s (Maybe (MArray s (mult (plus (length bs) 1) 256) Nat))
-    go state arr bord t =
-      let False        := state > length bs
-            | True =>
-                Just arr # t
-          Just state'  := tryNatToFin state
-           | Nothing => Nothing # t
-          bordcur # t  := get bord state' t
-          patbyte      :=
-            case index state bs of
-              Nothing =>
-                Nothing
-              Just b  =>
-                Just (cast {to=Nat} b)
-          statebase    := mult state 256
-          arr'     # t := fillState state 255 patbyte bordcur statebase arr t
-          Just arr''   := arr'
-           | Nothing => Nothing # t
-        in assert_total (go (S state) arr'' bord t)
+          bordcur # t := kmpBorder bord state' t
+          patbyte        := index state bs
+          arr'       # t := fillState stspace state' 255 patbyte bordcur arr t
+          Just arr''     := arr'
+            | Nothing =>
+                Nothing # t
+       in assert_total (go stspace (S state) arr'' bord t)
 ```
 The automaton is:
 
@@ -570,55 +556,79 @@ This library pre-computes the table rule using the `kmpBorders` function (found 
 
 ```idris
 kmpBorders :  (bs : ByteString)
-           -> F1 s (Maybe (MArray s (S (length bs)) Nat))
+           -> F1 s (Maybe (KMPBorders s))
 kmpBorders bs t =
-  let arr   # t := unsafeMArray1 (S (length bs)) t
-      Just zero := tryNatToFin Z
-        | Nothing => Nothing # t
-      ()    # t := set arr zero Z t
-    in go (S Z) Z bs arr t
+  let Just stspace := dfaStateSpace bs
+        | Nothing =>
+            Nothing # t
+      arr # t      := newKMPBorderTable {states = stspace.states} t
+      zero         : DFAState stspace.states
+      zero         := I 0 {prf = stspace.statesPositive}
+      ()       # t := setKMPBorder arr zero zero t
+      Just one     := nextDFAState stspace zero
+        | Nothing =>
+            Nothing # t
+    in go stspace one zero arr t
   where
     mutual
-      advance :  (i : Nat)
-              -> (j : Nat)
-              -> (wi : Nat)
-              -> (bs : ByteString)
-              -> (arr : MArray s (S (length bs)) Nat)
-              -> F1 s (Maybe (MArray s (S (length bs)) Nat))
-      advance i j wi bs arr t =
-        let Just wj := index j bs
-              | Nothing => Nothing # t
-            wj' := cast {to=Nat} wj
-            False := wi == wj'
+      ||| Continue resolving the border for the current pattern position.
+      |||
+      ||| On a matching pattern byte, both the current pattern position and
+      ||| border position advance by one. On a mismatch, the previous border
+      ||| value is read directly from the bounded KMP border table.
+      |||
+      advance :  (stspace : DFAStateSpace)
+              -> (i : DFAState stspace.states)
+              -> (j : DFAState stspace.states)
+              -> (wi : Bits8)
+              -> (arr : KMPBorderTable s stspace.states)
+              -> F1 s (Maybe (KMPBorders s))
+      advance stspace i j wi arr t =
+        let jidx    := cast {to=Nat} (dfaStateValue j)
+            Just wj := index jidx bs
+              | Nothing =>
+                  Nothing # t
+            False   := wi == wj
               | True =>
-                  let j'       := S j
-                      Just fi' := tryNatToFin (S i)
-                        | Nothing => Nothing # t
-                      ()   # t := set arr fi' j' t
-                    in assert_total (go (S i) j' bs arr t)
-            False := j == 0
+                  let Just i' := nextDFAState stspace i
+                        | Nothing =>
+                            Nothing # t
+                      Just j' := nextDFAState stspace j
+                        | Nothing =>
+                            Nothing # t
+                      () # t := setKMPBorder arr i' j' t
+                    in assert_total (go stspace i' j' arr t)
+            False   := dfaStateValue j == 0
               | True =>
-                  let Just fi' := tryNatToFin (S i)
-                        | Nothing => Nothing # t
-                      ()   # t := set arr fi' Z t
-                    in assert_total (go (S i) Z bs arr t)
-            Just fj := tryNatToFin j
-              | Nothing => Nothing # t
-            j' # t := get arr fj t
-          in assert_total (advance i j' wi bs arr t)
-      go :  (i : Nat)
-         -> (j : Nat)
-         -> (bs : ByteString)
-         -> (arr : MArray s (S (length bs)) Nat)
-         -> F1 s (Maybe (MArray s (S (length bs)) Nat))
-      go i j bs arr t =
-        let False   := i == length bs
+                  let Just i' := nextDFAState stspace i
+                        | Nothing =>
+                            Nothing # t
+                      zero    : DFAState stspace.states
+                      zero    := I 0 {prf = stspace.statesPositive}
+                      ()  # t := setKMPBorder arr i' zero t
+                    in assert_total (go stspace i' zero arr t)
+            j'  # t := kmpBorder arr j t
+          in assert_total (advance stspace i j' wi arr t)
+      ||| Process the next pattern position while constructing the KMP border
+      ||| table.
+      |||
+      ||| `i` and `j` are already valid DFA states, so border-table indexing
+      ||| requires no dynamic conversion to `Fin`.
+      |||
+      go :  (stspace : DFAStateSpace)
+         -> (i : DFAState stspace.states)
+         -> (j : DFAState stspace.states)
+         -> (arr : KMPBorderTable s stspace.states)
+         -> F1 s (Maybe (KMPBorders s))
+      go stspace i j arr t =
+        let iidx    := cast {to=Nat} (dfaStateValue i)
+            False   := iidx == length bs
               | True =>
-                  Just arr # t
-            Just wi := index i bs
-              | Nothing => Nothing # t
-            wi'     := cast {to=Nat} wi
-          in advance i j wi' bs arr t
+                  Just (MkKMPBorders stspace arr) # t
+            Just wi := index iidx bs
+              | Nothing =>
+                  Nothing # t
+         in assert_total (advance stspace i j wi arr t)
 ```
 
 The table helps efficiently skip positions in the pattern during sub-string search, while descending from longer prefixes to shorter ones.

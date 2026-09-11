@@ -1,12 +1,13 @@
 ||| Fast Knuth-Morris-Pratt search of ByteStrings
 module Data.ByteString.Search.KnuthMorrisPratt
 
-import Data.ByteString.Search.Internal.Utils
-
 import Data.Array.Core
 import Data.Array.Mutable
 import Data.Bits
 import Data.ByteString
+import Data.ByteString.Search.DFA.Types
+import Data.ByteString.Search.KnuthMorrisPratt.Internal
+import Data.Enum
 import Data.Linear.Ref1
 import Data.So
 
@@ -18,49 +19,86 @@ import Data.So
 ||| Returns a list of starting positions of a pattern `ByteString`
 ||| (0-based) across the list of target `ByteString`s.
 |||
+||| The KMP pattern position and border values are represented by bounded
+||| `DFAState` values belonging to the state space packaged with the KMP
+||| border table.
+|||
+||| Consequently, border-table lookups require no `tryNatToFin`, `Fin`
+||| conversion, or other dynamic array-bounds validation. A border lookup
+||| accepts an already-bounded state and directly returns another bounded
+||| state.
+|||
+||| Target and chunk positions remain `Nat` values because they represent
+||| absolute positions in the streamed input rather than KMP states.
+|||
 private
 matcher :  Bool
         -> ByteString
         -> List ByteString
         -> F1 s (Maybe (List Nat))
 matcher overlap pat chunks t =
-  let patlen := length pat
-      Just patzero := index Z pat
+  let patlen                             := length pat
+      Just patzero                       := index Z pat
         | Nothing =>
             Nothing # t
-      bords # t := kmpBorders pat t
-      Just bords' := bords
+      bords                          # t := kmpBorders pat t
+      Just (MkKMPBorders stspace bords') := bords
         | Nothing =>
             Nothing # t
-      Just patlenfin := tryNatToFin patlen
+      -- The complete-match state for this pattern.
+      --
+      -- This validation is performed once before searching begins.
+      Just fullstate                     := tryIndex {r = stspace.states} (cast patlen)
         | Nothing =>
             Nothing # t
-      fullbord # t := get bords' patlenfin t
-      result # t := searcher Z Z chunks Lin patlen patzero fullbord bords' t
-      Just result' := result
+      -- DFA state one, reached after matching the first pattern byte.
+      --
+      -- Since `pat` is known to be nonempty at this point, state one is
+      -- valid. The check is performed once outside the search loop.
+      Just stateone                      := tryIndex {r = stspace.states} 1
+        | Nothing =>
+            Nothing # t
+      fullbord                       # t := kmpBorder bords' fullstate t
+      result                         # t := searcher stspace Z (zeroDFAState stspace) chunks Lin patlen patzero stateone fullbord bords' t
+      Just result'                       := result
         | Nothing =>
             Nothing # t
     in Just (result' <>> []) # t
   where
     mutual
-      searcher :  (prior : Nat)
-               -> (patpos : Nat)
+      ||| Continue searching across the remaining target chunks.
+      |||
+      ||| `patpos` is the current KMP pattern state. If it is state zero,
+      ||| searching uses the specialized `checkHead` path; otherwise the
+      ||| partial match is continued with `findMatch`.
+      |||
+      searcher :  (stspace : DFAStateSpace)
+               -> (prior : Nat)
+               -> (patpos : DFAState stspace.states)
                -> (strs : List ByteString)
                -> (final : SnocList Nat)
                -> (patlen : Nat)
                -> (patzero : Bits8)
-               -> (fullbord : Nat)
-               -> (bords : MArray s (S (length pat)) Nat)
+               -> (stateone : DFAState stspace.states)
+               -> (fullbord : DFAState stspace.states)
+               -> (bords : KMPBorderTable s stspace.states)
                -> F1 s (Maybe (SnocList Nat))
-      searcher _     _      []            final _      _       _        _     t =
+      searcher stspace _     _      []            final _      _       _        _        _     t =
         Just final # t
-      searcher prior patpos (str :: rest) final patlen patzero fullbord bords t =
-        let strlen := length str
-            False  := patpos == Z
-              | True =>
-                  assert_total (checkHead prior Z str strlen rest final patlen patzero fullbord bords t)
-          in assert_total (findMatch prior patpos Z str strlen rest final patlen patzero fullbord bords t)
-      checkHead :  (prior : Nat)
+      searcher stspace prior patpos (str :: rest) final patlen patzero stateone fullbord bords t =
+          let strlen := length str
+              False  := dfaStateValue patpos == 0
+                | True =>
+                    assert_total (checkHead stspace prior Z str strlen rest final patlen patzero stateone fullbord bords t)
+            in assert_total (findMatch stspace prior patpos Z str strlen rest final patlen patzero stateone fullbord bords t)
+      ||| Search for the first pattern byte while the KMP state is zero.
+      |||
+      ||| Bytes which differ from the first pattern byte can be skipped
+      ||| without consulting the KMP border table. When `patzero` is found,
+      ||| searching continues directly from prevalidated state one.
+      |||
+      checkHead :  (stspace : DFAStateSpace)
+                -> (prior : Nat)
                 -> (stri : Nat)
                 -> (str : ByteString)
                 -> (strlen : Nat)
@@ -68,23 +106,34 @@ matcher overlap pat chunks t =
                 -> (final : SnocList Nat)
                 -> (patlen : Nat)
                 -> (patzero : Bits8)
-                -> (fullbord : Nat)
-                -> (bords : MArray s (S (length pat)) Nat)
+                -> (stateone : DFAState stspace.states)
+                -> (fullbord : DFAState stspace.states)
+                -> (bords : KMPBorderTable s stspace.states)
                 -> F1 s (Maybe (SnocList Nat))
-      checkHead prior stri str strlen rest final patlen patzero fullbord bords t =
-        let False := stri == strlen
+      checkHead stspace prior stri str strlen rest final patlen patzero stateone fullbord bords t =
+        let False          := stri == strlen
               | True =>
-                  assert_total (searcher (plus prior strlen) Z rest final patlen patzero fullbord bords t)
+                  assert_total (searcher stspace (plus prior strlen) (zeroDFAState stspace) rest final patlen patzero stateone fullbord bords t)
             Just strbyte := index stri str
               | Nothing =>
                   Nothing # t
-            nxtstri := S stri
-            False := strbyte == patzero
+            nxtstri      := S stri
+            False        := strbyte == patzero
               | True =>
-                  assert_total (findMatch prior (S Z) nxtstri str strlen rest final patlen patzero fullbord bords t)
-          in assert_total (checkHead prior nxtstri str strlen rest final patlen patzero fullbord bords t)
-      findMatch :  (prior : Nat)
-                -> (pati : Nat)
+                  assert_total (findMatch stspace prior stateone nxtstri str strlen rest final patlen patzero stateone fullbord bords t)
+          in assert_total (checkHead stspace prior nxtstri str strlen rest final patlen patzero stateone fullbord bords t)
+      ||| Continue a partial KMP match.
+      |||
+      ||| `pati` is a bounded KMP state rather than a raw `Nat`. A complete
+      ||| match is detected by comparing the underlying state value with the
+      ||| pattern length.
+      |||
+      ||| If the current chunk ends while a partial match is active, the same
+      ||| bounded pattern state is carried directly into the next chunk.
+      |||
+      findMatch :  (stspace : DFAStateSpace)
+                -> (prior : Nat)
+                -> (pati : DFAState stspace.states)
                 -> (stri : Nat)
                 -> (str : ByteString)
                 -> (strlen : Nat)
@@ -92,30 +141,45 @@ matcher overlap pat chunks t =
                 -> (final : SnocList Nat)
                 -> (patlen : Nat)
                 -> (patzero : Bits8)
-                -> (fullbord : Nat)
-                -> (bords : MArray s (S (length pat)) Nat)
+                -> (stateone : DFAState stspace.states)
+                -> (fullbord : DFAState stspace.states)
+                -> (bords : KMPBorderTable s stspace.states)
                 -> F1 s (Maybe (SnocList Nat))
-      findMatch prior pati stri str strlen rest final patlen patzero fullbord bords t =
-        let False := pati == patlen
+      findMatch stspace prior pati stri str strlen rest final patlen patzero stateone fullbord bords t =
+        let patival := dfaStateValue pati
+            False   := patival == cast {to=Bits32} patlen
               | True =>
                   let matchidx := minus (plus prior stri) patlen
                       final'   := final :< matchidx
                       False    := overlap
                         | True =>
-                            let False := fullbord == Z
+                            let False := dfaStateValue fullbord == 0
                                   | True =>
-                                      assert_total (checkHead prior stri str strlen rest final' patlen patzero fullbord bords t)
-                              in assert_total (findMatch prior fullbord stri str strlen rest final' patlen patzero fullbord bords t)
-                    in assert_total (checkHead prior stri str strlen rest final' patlen patzero fullbord bords t)
-            False := stri == strlen
+                                      assert_total (checkHead stspace prior stri str strlen rest final' patlen patzero stateone fullbord bords t)
+                              in assert_total (findMatch stspace prior fullbord stri str strlen rest final' patlen patzero stateone fullbord bords t)
+                   in assert_total (checkHead stspace prior stri str strlen rest final' patlen patzero stateone fullbord bords t)
+            False        := stri == strlen
               | True =>
-                  assert_total (searcher (plus prior strlen) pati rest final patlen patzero fullbord bords t)
+                  assert_total (searcher stspace (plus prior strlen) pati rest final patlen patzero stateone fullbord bords t)
             Just strbyte := index stri str
               | Nothing =>
                   Nothing # t
-          in assert_total (compareAt prior pati stri strbyte str strlen rest final patlen patzero fullbord bords t)
-      compareAt :  (prior : Nat)
-                -> (pati : Nat)
+         in assert_total (compareAt stspace prior pati stri strbyte str strlen rest final patlen patzero stateone fullbord bords t)
+      ||| Compare the current target byte with the pattern byte represented by
+      ||| the current KMP state.
+      |||
+      ||| On a mismatch, the fallback state is read directly from the bounded
+      ||| KMP border table. No conversion through `Fin`, `tryNatToFin`, or
+      ||| `Maybe` is required for the border lookup.
+      |||
+      ||| On a match, the pattern state advances by one. Since this function
+      ||| is reached only after `findMatch` has established that `pati` is not
+      ||| the complete-match state, its successor is known to remain within
+      ||| the DFA state space.
+      |||
+      compareAt :  (stspace : DFAStateSpace)
+                -> (prior : Nat)
+                -> (pati : DFAState stspace.states)
                 -> (stri : Nat)
                 -> (strbyte : Bits8)
                 -> (str : ByteString)
@@ -124,24 +188,30 @@ matcher overlap pat chunks t =
                 -> (final : SnocList Nat)
                 -> (patlen : Nat)
                 -> (patzero : Bits8)
-                -> (fullbord : Nat)
-                -> (bords : MArray s (S (length pat)) Nat)
+                -> (stateone : DFAState stspace.states)
+                -> (fullbord : DFAState stspace.states)
+                -> (bords : KMPBorderTable s stspace.states)
                 -> F1 s (Maybe (SnocList Nat))
-      compareAt prior pati stri strbyte str strlen rest final patlen patzero fullbord bords t =
-          let Just patbyte := index pati pat
-                | Nothing =>
-                    Nothing # t
-              False := strbyte == patbyte
-                | True =>
-                    assert_total (findMatch prior (S pati) (S stri) str strlen rest final patlen patzero fullbord bords t)
-              Just patfin := tryNatToFin pati
-                | Nothing =>
-                    Nothing # t
-              fallback # t := get bords patfin t
-              False := fallback == Z
-                | True =>
-                    assert_total (checkHead prior (S stri) str strlen rest final patlen patzero fullbord bords t)
-            in assert_total (compareAt prior fallback stri strbyte str strlen rest final patlen patzero fullbord bords t)
+      compareAt stspace prior pati stri strbyte str strlen rest final patlen patzero stateone fullbord bords t =
+        let patidx       := cast {to=Nat} (dfaStateValue pati)
+            Just patbyte := index patidx pat
+              | Nothing =>
+                  Nothing # t
+            False        := strbyte == patbyte
+              | True =>
+                  let nextval : Bits32
+                      nextval := dfaStateValue pati + 1
+                      -- The successor is valid because `findMatch` has
+                      -- already established that `pati` is not the final
+                      -- pattern state.
+                      nextstate : DFAState stspace.states
+                      nextstate = I nextval {prf = believe_me ()}
+                    in assert_total (findMatch stspace prior nextstate (S stri) str strlen rest final patlen patzero stateone fullbord bords t)
+            fallback # t := kmpBorder bords pati t
+            False        := dfaStateValue fallback == 0
+              | True =>
+                  assert_total (checkHead stspace prior (S stri) str strlen rest final patlen patzero stateone fullbord bords t)
+          in assert_total (compareAt stspace prior fallback stri strbyte str strlen rest final patlen patzero stateone fullbord bords t)
 
 ||| Performs a Knuth–Morris–Pratt string search on a `ByteString`.
 |||

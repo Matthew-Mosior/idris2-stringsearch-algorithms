@@ -6,10 +6,14 @@ license   = "BSD-3 Clause"
 version   = 0.1.0
 sourcedir = "src"
 depends   = base
-          , array
+          , darray
           , bytestring
+          , enum
           , ref1
 modules   = Data.ByteString.Search.BoyerMoore
+          , Data.ByteString.Search.BoyerMoore.Internal
           , Data.ByteString.Search.DFA
-          , Data.ByteString.Search.Internal.Utils
+          , Data.ByteString.Search.DFA.Internal
+          , Data.ByteString.Search.DFA.Types
           , Data.ByteString.Search.KnuthMorrisPratt
+          , Data.ByteString.Search.KnuthMorrisPratt.Internal
