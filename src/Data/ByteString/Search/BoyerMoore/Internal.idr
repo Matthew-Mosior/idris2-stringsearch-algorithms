@@ -365,3 +365,90 @@ suffixLengths bs {prf} t =
                     in assert_total (noSuffix stspace nexti arr t)
             ()           # t := bmSet arr ipos (i - previ') t
           in assert_total (suffixLoop stspace previ' (cast {to=Int} $ minus (length bs) 2) nexti arr t)
+
+||| Build the Boyer–Moore good-suffix shift table.
+|||
+||| The suffix-length table and resulting shift table share the same bounded
+||| pattern index space.
+|||
+||| Primitive table accesses therefore use `PatternIndex` rather than
+||| dynamically constructed `Fin` values.
+|||
+export
+suffixShifts :  (bs : ByteString)
+             -> {0 prf : So (not $ null bs)}
+             -> F1 s (Maybe (BMPatternTable s))
+suffixShifts bs {prf} t =
+  let suff                              # t := suffixLengths bs {prf = prf} t
+      Just (MkBMPatternTable stspace suff') := suff
+        | Nothing =>
+            Nothing # t
+      arr                               # t := newBMIntTableWith {size = stspace.size} (cast {to=Int} $ length bs) t
+      arr'                              # t := prefixShift stspace (cast {to=Int} $ minus (length bs) 2) 0 suff' arr t
+      Just arr''                            := arr'
+        | Nothing =>
+            Nothing # t
+      arr'''                            # t := suffixShift stspace 0 suff' arr'' t
+      Just arr''''                          := arr'''
+        | Nothing =>
+            Nothing # t
+    in Just (MkBMPatternTable stspace arr'''') # t
+  where
+    fillToShift :  (stspace : BMPatternSpace)
+                -> (i : Int)
+                -> (shift : Int)
+                -> (arr : BMIntTable s stspace.size)
+                -> F1 s (Maybe (BMIntTable s stspace.size))
+    fillToShift stspace i shift arr t =
+      let False     := i == shift
+            | True =>
+                Just arr # t
+          Just ipos := toPatternIndex stspace (cast {to=Nat} i)
+            | Nothing =>
+                Nothing # t
+          ()    # t := bmSet arr ipos shift t
+        in assert_total (fillToShift stspace (i + 1) shift arr t)
+    prefixShift :  (stspace : BMPatternSpace)
+                -> (idx : Int)
+                -> (j : Int)
+                -> (suff : BMIntTable s stspace.size)
+                -> (arr : BMIntTable s stspace.size)
+                -> F1 s (Maybe (BMIntTable s stspace.size))
+    prefixShift stspace idx j suff arr t =
+      let False       := idx < 0
+            | True =>
+                Just arr # t
+          Just idxpos := toPatternIndex stspace (cast {to=Nat} idx)
+            | Nothing =>
+                Nothing # t
+          idxval  # t := bmGet suff idxpos t
+          True        := idxval == idx + 1
+            | False =>
+                assert_total (prefixShift stspace (idx - 1) j suff arr t)
+          shift       := cast {to=Int} (minus (length bs) 1) - idx
+          arr'    # t := fillToShift stspace j shift arr t
+          Just arr''  := arr'
+            | Nothing =>
+                Nothing # t
+        in assert_total (prefixShift stspace (idx - 1) shift suff arr'' t)
+    suffixShift :  (stspace : BMPatternSpace)
+                -> (idx : Int)
+                -> (suff : BMIntTable s stspace.size)
+                -> (arr : BMIntTable s stspace.size)
+                -> F1 s (Maybe (BMIntTable s stspace.size))
+    suffixShift stspace idx suff arr t =
+      let patend         := cast {to=Int} (minus (length bs) 1)
+          False          := idx >= patend
+            | True =>
+                Just arr # t
+          Just idxpos    := toPatternIndex stspace (cast {to=Nat} idx)
+            | Nothing =>
+                Nothing # t
+          sufflen    # t := bmGet suff idxpos t
+          target         := patend - sufflen
+          Just targetpos := toPatternIndex stspace (cast {to=Nat} target)
+            | Nothing =>
+                Nothing # t
+          value          := patend - idx
+          ()         # t := bmSet arr targetpos value t
+        in assert_total (suffixShift stspace (idx + 1) suff arr t)
